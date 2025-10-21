@@ -5,46 +5,12 @@ import shutil
 import json
 import getpass
 import logging
-
-from meshroom.core.submitter import BaseSubmitter, BaseSubmittedJob
-from meshroom.core.submitter import SubmitterOptions, SubmitterOptionsEnum
-
-from tractorSubmitter.api.base import TRACTOR_JOB_URL
+from meshroom.core.submitter import BaseSubmitter, SubmitterOptions, SubmitterOptionsEnum
+from tractorSubmitter.api.base import TractorJob
 from tractorSubmitter.api.tractorJobCreation import get_job_packages, Task, Job
 
 currentDir = os.path.dirname(os.path.realpath(__file__))
 binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
-
-
-class TractorJob(BaseSubmittedJob):
-    """
-    Interface to manipulate the job via Meshroom
-    """
-    
-    def __init__(self, jid):
-        super().__init__(jid, TractorSubmitter)
-        self.jobUrl = TRACTOR_JOB_URL.format(jid=jid)
-        self.__tractorJob = None
-    
-    def __getTractorJob(self):
-        """ Find job """
-        return 0
-    
-    @property
-    def tractorJob(self):
-        if not self.__tractorJob:
-            self.tractorJob = self.__getTractorJob()
-        return self.__tractorJob
-    
-    @tractorJob.setter
-    def tractorJob(self, job):
-        self.__tractorJob = job
-    
-    def interrupt(self):
-        raise NotImplementedError("[TractorJob] 'interrupt' is not implemented yet")
-    
-    def resume(self):
-        raise NotImplementedError("[TractorJob] 'resume' is not implemented yet")
 
 
 class TractorSubmitter(BaseSubmitter):
@@ -77,7 +43,7 @@ class TractorSubmitter(BaseSubmitter):
             self.environment['PROD_ROOT'] = os.environ['PROD_ROOT']
     
     def retrieveJob(self, jid) -> TractorJob:
-        return TractorJob(jid)
+        return TractorJob(jid, TractorSubmitter)
 
     def createTask(self, meshroomFile, node):
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
@@ -142,6 +108,6 @@ class TractorSubmitter(BaseSubmitter):
             return True
         if len(res) == 0:
             return False
-        submittedJob = TractorJob(res.get("id"))
+        submittedJob = TractorJob(res.get("id"), TractorSubmitter)
         submittedJob.tractorJob = job
         return submittedJob

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from tractorSubmitter.api import base as tractorBase
+from tractorSubmitter.api.base import TractorJob
+
 
 def getQuery():
     try:
