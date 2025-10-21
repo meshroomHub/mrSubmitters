@@ -15,7 +15,9 @@ binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
 
 class SimpleFarmSubmitter(BaseSubmitter):
 
-    filepath = os.environ.get('SIMPLEFARMCONFIG', os.path.join(currentDir, 'tractorConfig.json'))
+    _name = 'SimpleFarm'
+    
+    filepath = os.environ.get('SIMPLEFARMCONFIG', os.path.join(currentDir, 'simpleFarmConfig.json'))
     config = json.load(open(filepath))
 
     reqPackages = []
@@ -25,7 +27,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
     REZ_DELIMITER_PATTERN = re.compile(r"-|==|>=|>|<=|<")
 
     def __init__(self, parent=None):
-        super().__init__(name='SimpleFarm', parent=parent)
+        super().__init__(parent=parent)
         self.engine = os.environ.get('MESHROOM_SIMPLEFARM_ENGINE', 'tractor')
         self.share = os.environ.get('MESHROOM_SIMPLEFARM_SHARE', 'vfx')
         self.prod = os.environ.get('PROD', 'mvg')
@@ -68,9 +70,6 @@ class SimpleFarmSubmitter(BaseSubmitter):
 
         if 'PROD_ROOT' in os.environ:
             self.environment['PROD_ROOT'] = os.environ['PROD_ROOT']
-        
-        if 'PROD_MOUNT' in os.environ:
-            self.environment['PROD_MOUNT'] = os.environ['PROD_MOUNT']
 
     def createTask(self, meshroomFile, node):
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
@@ -97,7 +96,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
             requirements={'service': str(','.join(allRequirements))}, **arguments)
         return task
 
-    def submit(self, nodes, edges, filepath, submitLabel="{projectName}"):
+    def createJob(self, nodes, edges, filepath, submitLabel="{projectName}"):
 
         projectName = os.path.splitext(os.path.basename(filepath))[0]
         name = submitLabel.format(projectName=projectName)
