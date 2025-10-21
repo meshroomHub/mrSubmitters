@@ -2,6 +2,7 @@
 
 import re
 import os
+import json
 import getpass
 import logging
 import shlex
@@ -122,7 +123,6 @@ class TractorTaskCreator:
     def __init__(self, task, job):
         """ Build task metadata """
         self.task = task
-        self.chunks = self.task.getChunks()
         
         # self.env
         self.env = job.environment.copy()
@@ -137,8 +137,10 @@ class TractorTaskCreator:
         if self.task.rezPackages:
             self.rezArgs['useCurrentContext'] = False
             self.rezArgs['otherRezPkg'] = self.task.rezPackages
-
-        # self.tractorCmd
+        
+        
+        self.createChunksTask = task.createChunksTask
+        self.chunks = [] if self.createChunksTask else task.getChunks()
         if self.chunks:
             # Empty task with multiple commands (sub-tasks) to execute in parallel
             self.tractorCmd = None
@@ -152,11 +154,7 @@ class TractorTaskCreator:
         # requirements
         # Licenses --> tractor handle licenses as limits
         requirements = filterRequirements(job.requirements)
-        self.limits = [LICENSES_MAP.get(license, license) for license in self.task.licenses]
-        if 'limits' in requirements:
-            self.limits.extend(requirements['limits'])
-        if 'DEFAULT_TRACTOR_LIMIT' in os.environ:
-            self.limits.append(os.environ['DEFAULT_TRACTOR_LIMIT'])
+        self.limits = self.getLimits(requirements)
         
         # Service
         taskRequirements = requirements.copy()
@@ -167,6 +165,7 @@ class TractorTaskCreator:
         self.service = taskRequirements.get('service', os.environ['DEFAULT_TRACTOR_SERVICE'])
         
         self.taskTags = self.task.tags.copy()
+        self.taskTags["uid"] = self.task.uid
     
     def getLimits(self, requirements):
         taskLimits = [LICENSES_MAP.get(license, license) for license in self.task.licenses]
@@ -183,11 +182,13 @@ class TractorTaskCreator:
         if self.task.execViaRez:
             cmd = rezWrapCommand(cmd, **self.rezArgs)
         # Create command task
+        chunkTags = self.taskTags.copy()
+        chunkTags["iteration"] = chk.iteration
         tractorTaskCmd = tractorTask.newTask(
             title=self.task.name + f"_{chk.start}_{chk.end}",
             argv=shlex.split(cmd),
             service=self.service,
-            metadata=str(self.taskTags),
+            metadata=json.dumps(chunkTags),
         )
         # licenses are handled via 'tags'
         tractorTaskCmd.cmds[0].tags = self.limits
@@ -200,11 +201,16 @@ class TractorTaskCreator:
         """ Creates the task
         Returns a TractorTask object
         """
+        taskKwargs = {}
+        if self.createChunksTask:
+            taskKwargs["expand"] = True
+            
         tractorTask = tractorAuthor.Task(
             title=self.task.name,
             argv=self.tractorCmd,
             service=self.service,
-            metadata=str(self.taskTags),
+            metadata=json.dumps(self.taskTags),
+            **taskKwargs
         )
         res = TractorTask(tractorTask)
         if not self.chunks:
@@ -226,8 +232,8 @@ class Task:
     """
     
     def __init__(self, name, uid, command, tags=None, execViaRez=True, rezPackages=None, requirements=None, environment=None, **kwargs):
-        self.uid = uid
         self.name = name
+        self.uid = uid
         self.command = command
         self.tags = tags or {}
         self.rezPackages = rezPackages or []
@@ -239,6 +245,7 @@ class Task:
         self.environment = environment or {}
         
         # Keyword args
+        self.createChunksTask = kwargs.get("createChunks")
         self.chunkParams = kwargs.get("chunks")
         self.licenses = kwargs.get("licenses", [])
     
@@ -376,7 +383,7 @@ class Job:
         tractorJob = tractorAuthor.Job(
             title=self.name,
             service=self.getService(),
-            metadata=str(tags),
+            metadata=json.dumps(tags),
             envkey=toTractorEnv(env),
             paused=self.paused,
             comment=self.comment,

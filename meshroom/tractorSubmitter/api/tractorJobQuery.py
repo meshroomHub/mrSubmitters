@@ -1,13 +1,7 @@
 #!/usr/bin/env python
 
-import re
-import os
 import json
-import getpass
-import logging
-import shlex
 from collections import namedtuple
-from meshroom.core.submitter import BaseSubmittedJob
 
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
 Chunk = namedtuple("chunk", ["iteration", "start", "end"])
@@ -45,43 +39,55 @@ def tractorQuery(func):
     return wrapper
 
 
+JOB_KEYS = [
+    "jid", "title", "spoolhost", "numactive", "numready", "numdone", "numerror", "maxtid", "priority", "afterjids"
+]
+
 @tractorQuery
 def getJob(tq, jobId):
     """ Request follows : 'CONDITION1 and CONDITION 2 and ...' """
-    JOB_KEYS = []
     request = f"jid={jobId}"
-    jobsList = tq.jobs(request)
+    # jobsList = tq.jobs(request)
+    jobsList = tq.jobs(request, columns=JOB_KEYS)
     if jobsList:
         job = jobsList[0]
-        return {k:v for k,v in job.items() if k in JOB_KEYS}}
+        # return {k:v for k,v in job.items() if k in JOB_KEYS}
+        return job
     return None
 
 
+TASK_KEYS = [
+    "jid", "title", "state", "tid", "ptids", "progress", "retrycount", "currcid", "cids", "metadata"
+]
+
+@tractorQuery
+def getJobTasks(tq, jobId):
+    request = f"jid={jobId}"
+    tasks = tq.tasks(request, columns=TASK_KEYS)
+    tractorTasks = {}
+    for task in tasks:
+        tid = task.get("tid")
+        if "metadata" in task and task["metadata"]:
+            task["metadata"] = json.loads(task["metadata"])
+        # tractorTasks[tid] = {k:v for k,v in task.items() if k in TASK_KEYS}
+        tractorTasks[tid] = task
+    return tractorTasks
 
 
-class TractorJob(BaseSubmittedJob):
-    """
-    Interface to manipulate the job via Meshroom
-    """
+@tractorQuery
+def blockTask(tq, tid, jid):
+    raise NotImplementedError("Cannot block a task with current tractor API")
 
-    def __init__(self, jid, submitter):
-        super().__init__(jid, submitter)
-        self.jid = jid
-        # self.jobUrl = TRACTOR_JOB_URL.format(jid=jid)
-        self.__tractorJob = None
 
-    def __getTractorJob(self):
-        """ Find job """
-        return getJob(self.jid)
-
-    @property
-    def tractorJob(self):
-        if not self.__tractorJob:
-            self.__tractorJob = self.__getTractorJob()
-        return self.__tractorJob
-
-    def interrupt(self):
-        raise NotImplementedError("[TractorJob] 'interrupt' is not implemented yet")
-
-    def resume(self):
-        raise NotImplementedError("[TractorJob] 'resume' is not implemented yet")
+def waitForJob(jid):
+    print(f"[TractorSubmitter] Block the current process to wait for completion of {jid}")
+    import time
+    while True:
+        time.sleep(5)
+        job = getJob(jid)
+        if job.get("numactive", 0) != 0:
+            continue
+        if job.get("numerror", 0) != 0:
+            continue
+        if job.get("numdone", 0) == job.get("maxtid"):
+            break
