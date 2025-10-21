@@ -10,13 +10,16 @@ Here goes all the boilerplate code
 
 """
 
-import re
 import os
+import sys
+import re
 import json
 import getpass
 import logging
 import shlex
 from collections import namedtuple
+import tempfile
+
 
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
 Chunk = namedtuple("chunk", ["iteration", "start", "end"])
@@ -32,6 +35,14 @@ PRIORITY_DICT = {
         "normal": 5000,
         "high": 10000,
     }
+
+
+def createTmpFolder(create=False):
+    # PY-3.12 : d = tempfile.TemporaryDirectory(suffix=None, prefix="meshroom_expand_task", delete=False)
+    tmpFolder = tempfile.mktemp(prefix="meshroom_expand_task")
+    if not create:
+        os.makedirs(tmpFolder)
+    return tmpFolder
 
 
 def getResolvedVersionsDict():
@@ -186,7 +197,8 @@ class JobInfos:
 
 
 class TaskInfos:
-    def __init__(self, name, cmdArgs, nodeUid, environment=None, rezPackages=None, 
+    def __init__(self, name, cmdArgs, nodeUid, cacheFolder="", 
+                 environment=None, rezPackages=None, 
                  service=None, licenses=None, tags=None, 
                  expandingTask=False, chunkParams=None):
         self.name = name
@@ -206,6 +218,7 @@ class TaskInfos:
         self.tags["nodeUid"] = nodeUid
         # Expanding / Chunks
         self.expandingTask = expandingTask
+        # self.expandingFile = self._setExpandingTaskFile(cacheFolder)
         self.chunks = [] if self.expandingTask else self.getChunks(chunkParams)
 
     @staticmethod
@@ -228,16 +241,48 @@ class TaskInfos:
                 slices = [frameRange[i:i + size] for i in range(0, len(frameRange), size)]
                 it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)]
         return it
-    
+
+    def _setExpandingTaskFile(self, cacheFolder):
+        """ Doesn't work with current python API ! 
+        It should be possible starting Tractor 1.7 to give a file path to cmd.expand
+        But it doesn't seem to work in python
+        Therefore it is not used now
+        """
+        if not self.expandingTask:
+            return None
+        if not cacheFolder:
+            cacheFolder = createTmpFolder()
+        if not os.path.exists(cacheFolder):
+            os.makedirs(cacheFolder)
+        expandingFile = os.path.join(cacheFolder, "_expand")
+        with open(expandingFile, "w") as fo:
+            fo.write("# Tractor commands")
+        # Update env to be able to write the tractor commands on the file
+        self.environment["EXPAND_FILE"] = expandingFile
+        return expandingFile
+
     @property
     def envkey(self):
         return toTractorEnv(self.environment)
+    
+    def getEpandWrappedCmd(self):
+        cmd = self.taskCommandArgs
+        # Wrap with create_chunks
+        cmd = f"meshroom_createChunks --submitter Tractor {cmd}"
+        # Wrap with rez
+        cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
+        # Wrap with tractor wrapper (will redirect stdout to stderr)
+        # to make sure stdout only has the 
+        wrapperModule = "tractorSubtaskWrapper.py"
+        wrapperPath = os.path.join(os.environ["MR_SUBMITTERS_SCRITPS"], wrapperModule)
+        cmd = f"{sys.executable} {wrapperPath} {cmd}"
+        return cmd
 
     def cook(self):
         if self.expandingTask:
             # Chunks are not created yet so we use the wrapper and the task will expand itself
-            cmd = f"tractorSubtaskWrapper meshroom_createChunks --submitter Tractor {self.taskCommandArgs}"
-            cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
+            cmd = self.getEpandWrappedCmd()
+            
         elif self.chunks:
             # Empty task with multiple commands (sub-tasks) to execute in parallel
             cmd = None

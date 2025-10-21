@@ -152,6 +152,7 @@ class TractorSubmitter(BaseSubmitter):
             name=node.name,
             commandArgs=cmdArgs,
             uid=node._uid,  # Provide unicity info
+            nodeCache=node._internalFolder, 
             tags=tags,
             rezPackages=self.reqPackages,
             service=self.getTaskService(node),

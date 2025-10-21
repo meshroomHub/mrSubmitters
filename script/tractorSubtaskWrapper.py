@@ -23,10 +23,6 @@ def main():
     # Save original stdout (for Tractor subtask output)
     original_stdout = sys.stdout
 
-    # Write Alfred header to stdout FIRST
-    original_stdout.write("##AlfredToDo 3.0\n")
-    original_stdout.flush()
-
     # Create a pipe for capturing subtask output
     read_fd, write_fd = os.pipe()
     

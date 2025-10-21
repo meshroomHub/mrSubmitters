@@ -46,6 +46,8 @@ def cookTractorTask(taskInfos: TaskInfos) -> TractorTask:
             cmd.tags = taskInfos.limits
             cmd.envkey = taskInfos.envkey
             cmd.expand = taskInfos.expandingTask
+            # if taskInfos.expandingTask:
+            #     cmd.expand = taskInfos.expandingFile
     return res
 
 
@@ -142,13 +144,14 @@ class Job:
         )
         self._graph = TaskGraph(self)
     
-    def createTask(self, name, commandArgs, uid, tags=None, rezPackages=None, service=None, 
+    def createTask(self, name, commandArgs, uid, nodeCache="", tags=None, rezPackages=None, service=None, 
                    licenses=None, expandingTask=None, chunkParams=None) -> Task:
         """ Add task and make sure it is unique """
         taskInfos = TaskInfos(
             name=name,
             cmdArgs=commandArgs,
             nodeUid=uid,
+            cacheFolder=nodeCache, 
             rezPackages=rezPackages, 
             service=service, 
             licenses=licenses, 
