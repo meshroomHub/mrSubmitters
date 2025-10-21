@@ -6,7 +6,7 @@ import json
 import getpass
 import logging
 from meshroom.core.submitter import BaseSubmitter, SubmitterOptions, SubmitterOptionsEnum
-from tractorSubmitter.api.base import TractorJob
+from tractorSubmitter.api.tractorJobQuery import TractorJob
 from tractorSubmitter.api.tractorJobCreation import get_job_packages, Task, Job
 
 currentDir = os.path.dirname(os.path.realpath(__file__))
@@ -109,5 +109,4 @@ class TractorSubmitter(BaseSubmitter):
         if len(res) == 0:
             return False
         submittedJob = TractorJob(res.get("id"), TractorSubmitter)
-        submittedJob.tractorJob = job
         return submittedJob

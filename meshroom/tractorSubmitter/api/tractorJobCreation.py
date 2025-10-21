@@ -5,7 +5,7 @@ import os
 import getpass
 import logging
 import shlex
-from tractorSubmitter.api.base import TRACTOR_JOB_URL, Chunk
+from tractorSubmitter.api.tractorJobQuery import TRACTOR_JOB_URL, Chunk
 from tractor.api import author as tractorAuthor
 
 REZ_DELIMITER_PATTERN = re.compile(r"(-|==|>=|>|<=|<)")
