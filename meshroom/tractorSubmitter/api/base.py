@@ -236,7 +236,7 @@ class TaskInfos:
     def cook(self):
         if self.expandingTask:
             # Chunks are not created yet so we use the wrapper and the task will expand itself
-            cmd = f"tractorSubtaskWrapper meshroom_createChunks {self.taskCommandArgs}"
+            cmd = f"tractorSubtaskWrapper meshroom_createChunks --submitter Tractor {self.taskCommandArgs}"
             cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
         elif self.chunks:
             # Empty task with multiple commands (sub-tasks) to execute in parallel

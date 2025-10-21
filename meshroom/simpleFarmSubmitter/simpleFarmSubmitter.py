@@ -17,8 +17,11 @@ class SimpleFarmSubmitter(BaseSubmitter):
 
     _name = 'SimpleFarm'
     
-    filepath = os.environ.get('SIMPLEFARMCONFIG', os.path.join(currentDir, 'simpleFarmConfig.json'))
-    config = json.load(open(filepath))
+    configpath = os.environ.get("SIMPLEFARMCONFIG")
+    if not configpath:
+        configpath = os.path.join(os.environ.get("MR_SUBMITTERS_CONFIGS"), "simpleFarmConfig.json")
+    with open(configpath, "r") as configfile:
+        config = json.load(configfile)
 
     reqPackages = []
     environment = {}

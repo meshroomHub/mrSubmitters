@@ -65,42 +65,22 @@ class TractorJob(BaseSubmittedJob):
     def resume(self):
         raise NotImplementedError("[TractorJob] 'resume' is not implemented yet")
     
-    def _getTaskService(self, node):
-        service = self.submitter.config.get_config(
-            cpu=node.nodeDesc.cpu.value,
-            ram=node.nodeDesc.ram.value,
-            gpu=node.nodeDesc.gpu.value,
-            excludeHosts=[]
-        )
-        return service
-    
-    def _createChunkTask(self, node, filepath):
-        # Tags
-        taskTags = self.submitter.DEFAULT_TAGS.copy()
-        taskTags['nbFrames'] = node.size
-        taskTags['prod'] = self.submitter.prod
-        # Environment
-        environment = self.submitter.environment.copy()
-        environment['FARM_USER'] = os.environ.get('FARM_USER', os.environ.get('USER', getpass.getuser()))
-        # Command
-        cmdArgs = f"--node {node.name} \"{filepath}\" --extern"
-        # Add task to the queue
-        queueChunkTask(
-            node=node,
-            cmdArgs=cmdArgs,
-            service=self._getTaskService(node),
-            tags=taskTags,
-            rezPackages=self.submitter.reqPackages,
-            environment=environment
-        )
-
-    def addChunkTask(self, node, **kwargs):
-        # Create job that will execute chunks
-        filepath = kwargs.get("graphFile")
-        self._createChunkTask(node, filepath)
+    def stopChunkTask(self, iteration):
+        for _, task in self.tractorJobTasks.items():
+            taskIt = task["metadata"].get("iteration", -1)
+            if taskIt == iteration:
+                break
+        else:
+            logging.error(f"TractorJob: Could not retrieve task for chunk iteration {iteration} (jid={self.jid})")
+            return
+        # Stop task
+        print("stop task", task)
+        tq.killTask(self.jid, task["tid"])
 
 
 def loadConfig(configpath):
+    if not configpath:
+        raise FileNotFoundError(f"Could not load tractor config from file {configpath}")
     import importlib.util
     spec = importlib.util.spec_from_file_location("tractorConfig", configpath)
     module = importlib.util.module_from_spec(spec)
@@ -118,24 +98,26 @@ class TractorSubmitter(BaseSubmitter):
     
     dryRun = False
     environment = {}
-    DEFAULT_TAGS = {'prod': ''}
+    DEFAULT_TAGS = {"prod": ""}
 
-    configpath = os.environ.get('TRACTORCONFIG', os.path.join(currentDir, 'tractorConfig.py'))
+    configpath = os.environ.get("TRACTORCONFIG")
+    if not configpath:
+        configpath = os.path.join(os.environ.get("MR_SUBMITTERS_CONFIGS"), "tractorConfig.py")
     config = loadConfig(configpath)
     
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.share = os.environ.get('MESHROOM_TRACTOR_SHARE', 'vfx')
-        self.prod = os.environ.get('PROD', 'mvg')
+        self.share = os.environ.get("MESHROOM_TRACTOR_SHARE", "vfx")
+        self.prod = os.environ.get("PROD", "mvg")
         self.reqPackages = getRequestPackages()
-        if 'REZ_DEV_PACKAGES_ROOT' in os.environ:
-            self.environment['REZ_DEV_PACKAGES_ROOT'] = os.environ['REZ_DEV_PACKAGES_ROOT']
-        if 'REZ_PROD_PACKAGES_PATH' in os.environ:
-            self.environment['REZ_PROD_PACKAGES_PATH'] = os.environ['REZ_PROD_PACKAGES_PATH']
-        if 'PROD' in os.environ:
-            self.environment['PROD'] = os.environ['PROD']
-        if 'PROD_ROOT' in os.environ:
-            self.environment['PROD_ROOT'] = os.environ['PROD_ROOT']
+        if "REZ_DEV_PACKAGES_ROOT" in os.environ:
+            self.environment["REZ_DEV_PACKAGES_ROOT"] = os.environ["REZ_DEV_PACKAGES_ROOT"]
+        if "REZ_PROD_PACKAGES_PATH" in os.environ:
+            self.environment["REZ_PROD_PACKAGES_PATH"] = os.environ["REZ_PROD_PACKAGES_PATH"]
+        if "PROD" in os.environ:
+            self.environment["PROD"] = os.environ["PROD"]
+        if "PROD_ROOT" in os.environ:
+            self.environment["PROD_ROOT"] = os.environ["PROD_ROOT"]
     
     def getTaskService(self, node):
         service = self.config.get_config(
@@ -213,3 +195,25 @@ class TractorSubmitter(BaseSubmitter):
             return False
         submittedJob = TractorJob(res.get("id"), TractorSubmitter)
         return submittedJob
+
+    def createChunkTask(self, node, graphFile, **kwargs):
+        """
+        Keyword args : cache, forceStatus, forceCompute
+        """
+        taskTags = self.DEFAULT_TAGS.copy()
+        taskTags['nbFrames'] = node.size
+        taskTags['prod'] = self.prod
+        # Environment
+        environment = self.environment.copy()
+        environment['FARM_USER'] = os.environ.get('FARM_USER', os.environ.get('USER', getpass.getuser()))
+        # Command
+        cmdArgs = f"--node {node.name} \"{graphFile}\" --extern"
+        # Add task to the queue
+        queueChunkTask(
+            node=node,
+            cmdArgs=cmdArgs,
+            service=self.getTaskService(node),
+            tags=taskTags,
+            rezPackages=self.reqPackages,
+            environment=environment
+        )

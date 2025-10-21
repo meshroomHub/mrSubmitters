@@ -23,6 +23,13 @@ except ImportError:
     _tq.setEngineClientParam(user=credentials['username'], password=credentials['password'])
 
 
+def wrapRequest(request):
+    if isinstance(request, str):
+        return request
+    elif isinstance(request, dict):
+        return " and ".join([f"{k}={v}" for k, v in request.items()])
+
+
 def tractorQuery(func):
     def wrapper(*args, **kwargs):
         if _tlm is None:
@@ -48,7 +55,7 @@ JOB_KEYS = [
 def getJob(tq, jid):
     """ Request follows : 'CONDITION1 and CONDITION 2 and ...' """
     request = {"jid": jid}
-    jobs = tq.jobs(request, columns=JOB_KEYS, limit=1)
+    jobs = tq.jobs(wrapRequest(request), columns=JOB_KEYS, limit=1)
     if jobs:
         job = jobs[0]
         return job
@@ -74,7 +81,13 @@ def _formatTask(task):
         if k == "tid":
             v = int(v)
         if k == "metadata":
-            v = json.loads(v)
+            if v:
+                try:
+                    v = json.loads(v)
+                except Exception as e:
+                    v = {}
+            else:
+                v = {}
         tractorTask[k] = v
     return tractorTask
 
@@ -82,7 +95,7 @@ def _formatTask(task):
 def getJobTasks(tq, jid):
     request = {"jid": jid}
     limit = 1000
-    tasks = tq.tasks(request, columns=TASK_KEYS, limit=limit)
+    tasks = tq.tasks(wrapRequest(request), columns=TASK_KEYS, limit=limit)
     if len(tasks) >= limit:
         print(f"[Warning] Tractor might have not collected all the tasks ! Limit of {limit} reached")
     tractorTasks = {}
@@ -95,7 +108,7 @@ def getJobTasks(tq, jid):
 @tractorQuery
 def getTask(tq, jid, tid):
     request = {"jid": jid, "tid": tid}
-    tasks = tq.tasks(request, columns=TASK_KEYS, limit=1)
+    tasks = tq.tasks(wrapRequest(request), columns=TASK_KEYS, limit=1)
     if tasks:
         task = _formatTask(tasks[0])
         return task
@@ -120,7 +133,7 @@ def pauseJob(tq, jid):
         jobs = [{"jid": j} for j in jid]
     else:
         jobs = {"jid": jid}
-    tq.pause(jobs)
+    tq.pause(wrapRequest(jobs))
 
 @tractorQuery
 def unpauseJob(tq, jid):
@@ -129,7 +142,7 @@ def unpauseJob(tq, jid):
         jobs = [{"jid": j} for j in jid]
     else:
         jobs = {"jid": jid}
-    tq.unpause(jobs)
+    tq.unpause(wrapRequest(jobs))
 
 @tractorQuery
 def interruptJob(tq, jid):
@@ -138,7 +151,7 @@ def interruptJob(tq, jid):
         jobs = [{"jid": j} for j in jid]
     else:
         jobs = {"jid": jid}
-    tq.interrupt(jobs)
+    tq.interrupt(wrapRequest(jobs))
 
 @tractorQuery
 def restartJob(tq, jid):
@@ -147,7 +160,7 @@ def restartJob(tq, jid):
         jobs = [{"jid": j} for j in jid]
     else:
         jobs = {"jid": jid}
-    tq.interrupt(jobs)
+    tq.interrupt(wrapRequest(jobs))
 
 @tractorQuery
 def retryErrorTasks(tq, jid):
@@ -156,7 +169,7 @@ def retryErrorTasks(tq, jid):
         jobs = [{"jid": j} for j in jid]
     else:
         jobs = {"jid": jid}
-    tq.retryerrors(jobs)
+    tq.retryerrors(wrapRequest(jobs))
 
 
 # 
@@ -170,7 +183,7 @@ def retryTask(tq, jid, tid):
         tasks = [{"jid": jid, "tid": t} for t in tid]
     else:
         tasks = {"jid": jid, "tid": tid}
-    tq.retry(tasks)
+    tq.retry(wrapRequest(tasks))
 
 @tractorQuery
 def resumeTask(tq, jid, tid):
@@ -179,7 +192,7 @@ def resumeTask(tq, jid, tid):
         tasks = [{"jid": jid, "tid": t} for t in tid]
     else:
         tasks = {"jid": jid, "tid": tid}
-    tq.resume(tasks)
+    tq.resume(wrapRequest(tasks))
 
 @tractorQuery
 def killTask(tq, jid, tid):
@@ -188,7 +201,7 @@ def killTask(tq, jid, tid):
         tasks = [{"jid": jid, "tid": t} for t in tid]
     else:
         tasks = {"jid": jid, "tid": tid}
-    tq.kill(tasks)
+    tq.kill(wrapRequest(tasks))
 
 @tractorQuery
 def skipTask(tq, jid, tid):
@@ -197,4 +210,4 @@ def skipTask(tq, jid, tid):
         tasks = [{"jid": jid, "tid": t} for t in tid]
     else:
         tasks = {"jid": jid, "tid": tid}
-    tq.skip(tasks)
+    tq.skip(wrapRequest(tasks))
