@@ -15,7 +15,9 @@ Example :
 
 import sys
 import os
+import json
 import shlex
+from tractorSubmitter.api.base import TaskInfos, ChunkTaskInfos
 
 
 # Original stdout file descriptor
@@ -47,7 +49,7 @@ def _getCachedSubtaskStdout():
     return _stdout
 
 
-def queueSubtask(title, cmd, service="", limits=None, metadata=None, envkey=None):
+def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=None):
     """
     Queue a subtask to be created in Tractor.
 
@@ -74,10 +76,10 @@ def queueSubtask(title, cmd, service="", limits=None, metadata=None, envkey=None
     tractor_stdout = _getCachedSubtaskStdout()
 
     # Parse command
-    if isinstance(cmd, str):
-        cmd_argv = shlex.split(cmd)
+    if isinstance(argv, str):
+        cmd_argv = shlex.split(argv)
     else:
-        cmd_argv = list(cmd)
+        cmd_argv = list(argv)
 
     cmd_str = " ".join(cmd_argv)
 
@@ -87,10 +89,9 @@ def queueSubtask(title, cmd, service="", limits=None, metadata=None, envkey=None
         tags_str = f"-tags {{{' '.join(limits)}}}"
 
     # Build metadata string
-    metadata_str = ""
-    if metadata:
-        metadata_list = [f"{k}:{v}" for k, v in metadata.items()]
-        metadata_str = f"-metadata {{{' '.join(metadata_list)}}}"
+    if isinstance(metadata, dict):
+        metadata = json.dumps(metadata)
+    metadata_str = f"-metadata {{{metadata}}}"
 
     # Build envkey string
     envkey_str = ""
@@ -106,8 +107,35 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     RemoteCmd {{{cmd_str}}} {service_str} {tags_str} {envkey_str}
 }}
 """
-
     tractor_stdout.write(task_def)
     tractor_stdout.flush()
-
     log(f"Queued subtask: {title}")
+
+
+def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environment=None):
+    chunkParams = None
+    blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
+    if nbBlocks > 1:  # Is it better like this ?
+        chunkParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
+    licenses = node.nodeDesc._licenses
+    taskInfos = TaskInfos(
+        node.name, 
+        cmdArgs,
+        nodeUid=node._uid,
+        environment=environment,
+        rezPackages=rezPackages,
+        service=service,
+        licenses=licenses,
+        tags=tags.copy() if tags else None,
+        expandingTask=False,
+        chunkParams=chunkParams
+    )
+    for chunk in TaskInfos.getChunks(chunkParams):
+        chunkInfos = ChunkTaskInfos(taskInfos, chunk)
+        # title, argv, service, metadata
+        chunkParams = chunkInfos.cook()
+        # limits, envkey
+        chunkParams['limits'] = taskInfos.limits
+        chunkParams['envkey'] = taskInfos.envkey
+        print(f"Create task with params :\n{chunkParams}")
+        queueSubtask(**chunkParams)

@@ -14,6 +14,8 @@ import re
 import getpass
 import logging
 from tractorSubmitter.api.subtaskCreator import queueSubtask
+from tractorSubmitter.api.base import rezWrapCommand
+
 
 REZ_DELIMITER_PATTERN = re.compile(r"-|==|>=|>|<=|<")
 
@@ -24,41 +26,6 @@ logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-def rezWrapCommand(cmd):
-    rezPackages = set()
-    if 'REZ_REQUEST' in os.environ:
-        packages = os.environ.get('REZ_USED_REQUEST', '').split()
-        resolvedPackages = os.environ.get('REZ_RESOLVE', '').split()
-        resolvedVersions = {}
-        for r in resolvedPackages:
-            if r.startswith('~'):  # remove implicit packages
-                continue
-            v = r.split('-')
-            if len(v) == 2:
-                resolvedVersions[v[0]] = v[1]
-            elif len(v) > 2:  # Handle case with multiple hyphen-minus
-                resolvedVersions[v[0]] = "-".join(v[1:])
-        usedPackages = set()  # Use set to remove duplicates
-        for p in packages:
-            if p.startswith('~') or p.startswith("!"):
-                continue
-            v = REZ_DELIMITER_PATTERN.split(p)
-            usedPackages.add(v[0])
-        for p in usedPackages:
-            # Use "==" to make sure we have the same version in the job that the one we have in the env
-            # where meshroom is launched
-            rezPackages.add("==".join([p, resolvedVersions[p]]))
-    packagesStr = " ".join([p for p in rezPackages if p])
-    if packagesStr:
-        rezBin = "rez"
-        if "REZ_BIN" in os.environ:
-            rezBin = os.environ["REZ_BIN"]
-        elif "REZ_PACKAGES_ROOT" in os.environ:
-            rezBin = os.path.join(os.environ["REZ_PACKAGES_ROOT"], "/bin/rez")
-        return f"{rezBin} env {packagesStr} -- {cmd}"
-    return cmd
 
 
 def get_envkey():
@@ -94,11 +61,11 @@ def main(nb_subtasks):
             'user': user
         }
         cmd = f"testRenderSubtask --frame {index}"
-        cmd = rezWrapCommand(cmd)
+        cmd = rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True)
         
         queueSubtask(
             title=f"{name}_{index:04d}",
-            cmd=cmd,
+            argv=cmd,
             service=service,
             limits=limits,
             metadata=metadata,

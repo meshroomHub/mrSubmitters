@@ -5,44 +5,10 @@ import json
 import re
 import shlex
 import getpass
+from tractorSubmitter.api.base import rezWrapCommand
 
 REZ_DELIMITER_PATTERN = re.compile(r"-|==|>=|>|<=|<")
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
-
-
-def rezWrapCommand(cmd):
-    rezPackages = set()
-    if 'REZ_REQUEST' in os.environ:
-        packages = os.environ.get('REZ_USED_REQUEST', '').split()
-        resolvedPackages = os.environ.get('REZ_RESOLVE', '').split()
-        resolvedVersions = {}
-        for r in resolvedPackages:
-            if r.startswith('~'):  # remove implicit packages
-                continue
-            v = r.split('-')
-            if len(v) == 2:
-                resolvedVersions[v[0]] = v[1]
-            elif len(v) > 2:  # Handle case with multiple hyphen-minus
-                resolvedVersions[v[0]] = "-".join(v[1:])
-        usedPackages = set()  # Use set to remove duplicates
-        for p in packages:
-            if p.startswith('~') or p.startswith("!"):
-                continue
-            v = REZ_DELIMITER_PATTERN.split(p)
-            usedPackages.add(v[0])
-        for p in usedPackages:
-            # Use "==" to make sure we have the same version in the job that the one we have in the env
-            # where meshroom is launched
-            rezPackages.add("==".join([p, resolvedVersions[p]]))
-    packagesStr = " ".join([p for p in rezPackages if p])
-    if packagesStr:
-        rezBin = "rez"
-        if "REZ_BIN" in os.environ:
-            rezBin = os.environ["REZ_BIN"]
-        elif "REZ_PACKAGES_ROOT" in os.environ:
-            rezBin = os.path.join(os.environ["REZ_PACKAGES_ROOT"], "/bin/rez")
-        return f"{rezBin} env {packagesStr} -- {cmd}"
-    return cmd
 
 
 def get_envkey():
@@ -90,16 +56,18 @@ def createJob(tractorAuthor, nb_subtasks, priority=5000):
         service=",".join(allRequirements), 
         metadata=json.dumps(mainTags)
     )
+    cmd = rezWrapCommand("testPrerender", useCurrentContext=False, useRequestedContext=True)
     prerenderTask = tractorAuthor.Task(
         title="[Tractor test] (Task) Pre-render",
-        argv=shlex.split(rezWrapCommand("testPrerender")),
+        argv=shlex.split(cmd),
         service=",".join(allRequirements), 
         metadata=json.dumps(mainTags)
     )
     
     # Render task
     cmd = f"tractorSubtaskWrapper testCreateRenderSubtasks {nb_subtasks}" 
-    cmd = rezWrapCommand(cmd)
+    cmd = rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True)
+    
     tractorCmd = shlex.split(cmd)
     renderTask = tractorAuthor.Task(
         title="[Tractor test] (Task) Render",
@@ -113,9 +81,10 @@ def createJob(tractorAuthor, nb_subtasks, priority=5000):
         cmd.expand = True
     
     # Post-render task
+    cmd = rezWrapCommand("testPostrender", useCurrentContext=False, useRequestedContext=True)
     postrenderTask = tractorAuthor.Task(
         title="[Tractor test] (Task) Post-render",
-        argv=shlex.split(rezWrapCommand("testPostrender")),
+        argv=shlex.split(cmd),
         service=",".join(allRequirements), 
         metadata=json.dumps(mainTags)
     )
