@@ -233,13 +233,14 @@ class TaskInfos:
     def getChunks(chunkParams) -> list[Chunk]:
         """ Get list of chunks """
         it = None
+        ignoreIterations = chunkParams.get("ignoreIterations", [])
         if chunkParams:
             start, end = chunkParams.get("start", -1), chunkParams.get("end", -2)
             size = chunkParams.get("packetSize", 1)
             frameRange = list(range(start, end+1, 1))
             if frameRange:
                 slices = [frameRange[i:i + size] for i in range(0, len(frameRange), size)]
-                it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)]
+                it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices) if i not in ignoreIterations]
         return it
 
     def _setExpandingTaskFile(self, cacheFolder):

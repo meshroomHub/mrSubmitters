@@ -12,7 +12,9 @@ from tractorSubmitter.api.base import getRequestPackages
 from tractorSubmitter.api.base import TaskInfos, ChunkTaskInfos
 from tractorSubmitter.api.tractorJobCreation import Task, Job
 from tractorSubmitter.api.subtaskCreator import queueChunkTask
+
 from meshroom.core.submitter import BaseSubmittedJob
+from meshroom.core.node import Status
 
 currentDir = os.path.dirname(os.path.realpath(__file__))
 binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
@@ -169,13 +171,19 @@ class TractorSubmitter(BaseSubmitter):
         print(f"Tractor Submitter : Add node {node.name} ({node})")
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
         optionalArgs = {}
-        if not (hasattr(node, '_chunksCreated') and node._chunksCreated):
+        if not node._chunksCreated:
             # Chunks will be created by the process
             optionalArgs["expandingTask"] = True
         elif node.isParallelized:
             blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
+            iterationsToIgnore = []
+            for c in node._chunks:
+                if c._status.status == Status.SUCCESS:
+                    iterationsToIgnore.append(c.range.iteration)
             if nbBlocks > 1:  # Is it better like this ?
-                optionalArgs["chunkParams"] = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
+                optionalArgs["chunkParams"] = {
+                    "start": 0, "end": nbBlocks - 1, "step": 1, "ignoreIterations": iterationsToIgnore
+                }
         tags['nbFrames'] = node.size
         tags['prod'] = self.prod
         # Fetch licenses
