@@ -30,7 +30,7 @@ class TractorJob(BaseSubmittedJob):
         # self.jobUrl = TRACTOR_JOB_URL.format(jid=jid)
         self.__tractorJob = None
         self.__tractorJobTasks = None
-    
+
     def printInfos(self):
         print(f"[Tractor Job] {self.jid}")
         print(f"        job : {self.tractorJob}")
@@ -41,7 +41,7 @@ class TractorJob(BaseSubmittedJob):
             if meta:
                 uid = meta.get("uid")
             print(f"            - [{uid}] {task}")
-    
+
     def __getTractorInfos(self):
         """ Find job """
         self.__tractorJob = tq.getJob(self.jid)
@@ -52,30 +52,63 @@ class TractorJob(BaseSubmittedJob):
         if not self.__tractorJob:
             self.__getTractorInfos()
         return self.__tractorJob
-    
+
     @property
     def tractorJobTasks(self):
         if not self.__tractorJobTasks:
             self.__getTractorInfos()
         return self.__tractorJobTasks
 
-    def interrupt(self):
-        raise NotImplementedError("[TractorJob] 'interrupt' is not implemented yet")
-
-    def resume(self):
-        raise NotImplementedError("[TractorJob] 'resume' is not implemented yet")
-    
-    def stopChunkTask(self, iteration):
+    def __getChunkTasks(self, nodeUid, iteration):
+        tasks = []
         for _, task in self.tractorJobTasks.items():
+            taskNodeUid = task["metadata"].get("nodeUid", None)
             taskIt = task["metadata"].get("iteration", -1)
-            if taskIt == iteration:
-                break
-        else:
-            logging.error(f"TractorJob: Could not retrieve task for chunk iteration {iteration} (jid={self.jid})")
-            return
-        # Stop task
-        print("stop task", task)
-        tq.killTask(self.jid, task["tid"])
+            if taskNodeUid == nodeUid and taskIt == iteration:
+                tasks.append(task)
+        return tasks
+
+    # Task actions
+
+    def stopChunkTask(self, node, iteration):
+        """ This will kill one task """
+        tasks = self.__getChunkTasks(node._uid, iteration)
+        for task in tasks:
+            tq.killTask(self.jid, task["tid"])
+
+    def skipChunkTask(self, node, iteration):
+        """ This will kill one task """
+        tasks = self.__getChunkTasks(node._uid, iteration)
+        for task in tasks:
+            tq.skipTask(self.jid, task["tid"])
+
+    def restartChunkTask(self, node, iteration):
+        """ This will kill one task """
+        tasks = self.__getChunkTasks(node._uid, iteration)
+        for task in tasks:
+            tq.retryTask(self.jid, task["tid"])  # or resumeTask ?
+
+    # Job actions
+
+    def pauseJob(self):
+        """ This will pause the job : new tasks will not be processed """
+        tq.pauseJob(self.jid)
+
+    def resumeJob(self):
+        """ This will unpause the job """
+        tq.unpauseJob(self.jid)
+
+    def interruptJob(self):
+        """ This will interrupt the job (and kill running tasks) """
+        tq.interruptJob(self.jid)
+
+    def restartJob(self):
+        """ Restarts the whole job """
+        tq.restartJob(self.jid)
+    
+    def restartErrorTasks(self):
+        """ Restart all error tasks on the job """
+        tq.retryErrorTasks(self.jid)
 
 
 def loadConfig(configpath):
@@ -133,9 +166,9 @@ class TractorSubmitter(BaseSubmitter):
         return job
 
     def createTask(self, job: Job, meshroomFile: str, node) -> Task:
+        print(f"Tractor Submitter : Add node {node.name} ({node})")
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
         optionalArgs = {}
-        logging.debug(f"TractorSubmitter: node: {node.name} ({node._uid})")
         if not (hasattr(node, '_chunksCreated') and node._chunksCreated):
             # Chunks will be created by the process
             optionalArgs["expandingTask"] = True

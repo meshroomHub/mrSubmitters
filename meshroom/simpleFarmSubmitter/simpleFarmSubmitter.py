@@ -75,11 +75,11 @@ class SimpleFarmSubmitter(BaseSubmitter):
             self.environment['PROD_ROOT'] = os.environ['PROD_ROOT']
 
     def createTask(self, meshroomFile, node):
+        print(f"SimpleFarm Submitter : Add node {node.name} ({node})")
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
         nbFrames = node.size
         arguments = {}
-        parallelArgs = ''
-        print('node: ', node.name)
+        parallelArgs = ""
         if node.isParallelized:
             blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
             parallelArgs = ' --iteration @start'

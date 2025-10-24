@@ -131,8 +131,8 @@ def get_config(cpu:int, ram:int, gpu:int, excludeHosts:list[str]=None):
     return config
 
 
-def __test__():
-    from itertools import product
-    for gpu, cpu, ram in product(range(4), range(4), range(4)):
-        service = get_config(cpu, ram, gpu)
-        print(f"GPU={Level(gpu).name:<10} CPU={Level(cpu).name:<10} RAM={Level(ram).name:<10}  -> {service}")
+# def __test__():
+#     from itertools import product
+#     for gpu, cpu, ram in product(range(4), range(4), range(4)):
+#         service = get_config(cpu, ram, gpu)
+#         print(f"GPU={Level(gpu).name:<10} CPU={Level(cpu).name:<10} RAM={Level(ram).name:<10}  -> {service}")

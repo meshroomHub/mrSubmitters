@@ -145,7 +145,7 @@ class Job:
         self._graph = TaskGraph(self)
     
     def createTask(self, name, commandArgs, uid, nodeCache="", tags=None, rezPackages=None, service=None, 
-                   licenses=None, expandingTask=None, chunkParams=None) -> Task:
+                   licenses=None, expandingTask=False, chunkParams=None) -> Task:
         """ Add task and make sure it is unique """
         taskInfos = TaskInfos(
             name=name,
@@ -188,7 +188,7 @@ class Job:
             self.jobInfos.share = share
 
         job = self.cook()
-        job.priority = PRIORITY_DICT.get(priority, 5000)
+        job.priority = PRIORITY_DICT.get(priority, PRIORITY_DICT["normal"])
 
         if dryRun:
             logging.info("TractorSubmitter: Job in TCL format :")

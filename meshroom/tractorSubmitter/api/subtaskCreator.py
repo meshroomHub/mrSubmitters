@@ -133,6 +133,7 @@ def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=Non
     service_str = f"-service {{{service}}}" if service else ""
 
     # Write Alfred task definition
+    # TODO : we can use tractor API to convert a Task into alf (asTcl)
     task_def = f"""
 Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     RemoteCmd {{{cmd_str}}} {service_str} {tags_str} {envkey_str}
@@ -144,10 +145,11 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
 
 
 def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environment=None):
-    chunkParams = None
+    chunkRangeParams = None
     blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
-    if nbBlocks > 1:  # Is it better like this ?
-        chunkParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
+    if nbBlocks <= 0:
+        return
+    chunkRangeParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
     licenses = node.nodeDesc._licenses
     taskInfos = TaskInfos(
         node.name, 
@@ -159,14 +161,13 @@ def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environm
         licenses=licenses,
         tags=tags.copy() if tags else None,
         expandingTask=False,
-        chunkParams=chunkParams
+        chunkParams=chunkRangeParams
     )
-    for chunk in TaskInfos.getChunks(chunkParams):
+    for chunk in TaskInfos.getChunks(chunkRangeParams):
         chunkInfos = ChunkTaskInfos(taskInfos, chunk)
         # title, argv, service, metadata
         chunkParams = chunkInfos.cook()
         # limits, envkey
         chunkParams['limits'] = taskInfos.limits
         chunkParams['envkey'] = taskInfos.envkey
-        print(f"Create task with params :\n{chunkParams}")
         queueSubtask(**chunkParams)

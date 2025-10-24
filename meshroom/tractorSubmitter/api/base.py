@@ -31,10 +31,10 @@ LICENSES_MAP = {
 }
 
 PRIORITY_DICT = {
-        "low": 4000,
-        "normal": 5000,
-        "high": 10000,
-    }
+    "low": 4000,
+    "normal": 5000,
+    "high": 10000,
+}
 
 
 def createTmpFolder(create=False):
