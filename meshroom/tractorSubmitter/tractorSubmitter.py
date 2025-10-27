@@ -168,7 +168,6 @@ class TractorSubmitter(BaseSubmitter):
         return job
 
     def createTask(self, job: Job, meshroomFile: str, node) -> Task:
-        print(f"Tractor Submitter : Add node {node.name} ({node})")
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
         optionalArgs = {}
         if not node._chunksCreated:
@@ -180,10 +179,12 @@ class TractorSubmitter(BaseSubmitter):
             for c in node._chunks:
                 if c._status.status == Status.SUCCESS:
                     iterationsToIgnore.append(c.range.iteration)
-            if nbBlocks > 1:  # Is it better like this ?
+            if nbBlocks > 0:
                 optionalArgs["chunkParams"] = {
                     "start": 0, "end": nbBlocks - 1, "step": 1, "ignoreIterations": iterationsToIgnore
                 }
+        else:
+            optionalArgs["chunkParams"] = {"start": 0, "end": 0, "step": 1}
         tags['nbFrames'] = node.size
         tags['prod'] = self.prod
         # Fetch licenses

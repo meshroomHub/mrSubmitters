@@ -219,7 +219,9 @@ class TaskInfos:
         # Expanding / Chunks
         self.expandingTask = expandingTask
         # self.expandingFile = self._setExpandingTaskFile(cacheFolder)
-        self.chunks = [] if self.expandingTask else self.getChunks(chunkParams)
+        self.chunks = []
+        if not expandingTask:
+            self.chunks = self.getChunks(chunkParams)
 
     @staticmethod
     def getLimits(licenses=None):
