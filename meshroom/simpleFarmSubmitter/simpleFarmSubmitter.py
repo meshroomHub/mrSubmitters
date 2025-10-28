@@ -130,6 +130,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
             nodeNameToTask[node.name] = task
 
         for u, v in edges:
+            print(f"Task {nodeNameToTask[u.name]} dependsOn {nodeNameToTask[v.name]}")
             nodeNameToTask[u.name].dependsOn(nodeNameToTask[v.name])
 
         if self.engine == 'tractor-dummy':

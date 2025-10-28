@@ -1,15 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import shutil
-import json
 import getpass
-import logging
-import importlib
 from meshroom.core.submitter import BaseSubmitter, SubmitterOptions, SubmitterOptionsEnum
 import tractorSubmitter.api.tractorJobQuery as tq
 from tractorSubmitter.api.base import getRequestPackages
-from tractorSubmitter.api.base import TaskInfos, ChunkTaskInfos
 from tractorSubmitter.api.tractorJobCreation import Task, Job
 from tractorSubmitter.api.subtaskCreator import queueChunkTask
 
@@ -225,6 +220,9 @@ class TractorSubmitter(BaseSubmitter):
         for node in nodes:
             if node._uid in nodeUidToTask:
                 continue  # HACK: Should not be necessary
+            # It would be better to skip inputNodes but at the same time tricky if used in between of other nodes
+            # if node._isInputNode():
+            #     continue
             task = self.createTask(job, filepath, node)
             nodeUidToTask[node._uid] = task
         # Connect tasks
