@@ -2,6 +2,7 @@
 
 import re
 import os
+import shutil
 import json
 import getpass
 import logging
@@ -100,10 +101,12 @@ def rezWrapCommand(cmd, useCurrentContext: bool = True, otherRezPkg: list[str] =
     packagesStr = " ".join([p for p in packages if p])
     if packagesStr:
         rezBin = "rez"
-        if "REZ_BIN" in os.environ:
+        if "REZ_BIN" in os.environ and os.environ["REZ_BIN"]:
             rezBin = os.environ["REZ_BIN"]
-        elif "REZ_PACKAGES_ROOT" in os.environ:
-            rezBin = os.path.join(os.environ["REZ_PACKAGES_ROOT"], "/bin/rez")
+        elif "REZ_PACKAGES_ROOT" in os.environ and os.environ["REZ_PACKAGES_ROOT"]:
+            rezBin = os.path.join(os.environ["REZ_PACKAGES_ROOT"], "bin/rez")
+        elif shutil.which("rez"):
+            rezBin = shutil.which("rez")
         return f"{rezBin} env {packagesStr} -- {cmd}"
     return cmd
 
