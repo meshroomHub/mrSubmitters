@@ -1,0 +1,1 @@
+from submitterCredentialUi.app import getCredentials

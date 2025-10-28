@@ -15,8 +15,13 @@ binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
 
 class SimpleFarmSubmitter(BaseSubmitter):
 
-    filepath = os.environ.get('SIMPLEFARMCONFIG', os.path.join(currentDir, 'tractorConfig.json'))
-    config = json.load(open(filepath))
+    _name = 'SimpleFarm'
+    
+    configpath = os.environ.get("SIMPLEFARMCONFIG")
+    if not configpath:
+        configpath = os.path.join(os.environ.get("MR_SUBMITTERS_CONFIGS"), "simpleFarmConfig.json")
+    with open(configpath, "r") as configfile:
+        config = json.load(configfile)
 
     reqPackages = []
     environment = {}
@@ -25,7 +30,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
     REZ_DELIMITER_PATTERN = re.compile(r"-|==|>=|>|<=|<")
 
     def __init__(self, parent=None):
-        super().__init__(name='SimpleFarm', parent=parent)
+        super().__init__(parent=parent)
         self.engine = os.environ.get('MESHROOM_SIMPLEFARM_ENGINE', 'tractor')
         self.share = os.environ.get('MESHROOM_SIMPLEFARM_SHARE', 'vfx')
         self.prod = os.environ.get('PROD', 'mvg')
@@ -68,16 +73,13 @@ class SimpleFarmSubmitter(BaseSubmitter):
 
         if 'PROD_ROOT' in os.environ:
             self.environment['PROD_ROOT'] = os.environ['PROD_ROOT']
-        
-        if 'PROD_MOUNT' in os.environ:
-            self.environment['PROD_MOUNT'] = os.environ['PROD_MOUNT']
 
     def createTask(self, meshroomFile, node):
+        print(f"SimpleFarm Submitter : Add node {node.name} ({node})")
         tags = self.DEFAULT_TAGS.copy()  # copy to not modify default tags
         nbFrames = node.size
         arguments = {}
-        parallelArgs = ''
-        print('node: ', node.name)
+        parallelArgs = ""
         if node.isParallelized:
             blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
             parallelArgs = ' --iteration @start'
@@ -97,7 +99,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
             requirements={'service': str(','.join(allRequirements))}, **arguments)
         return task
 
-    def submit(self, nodes, edges, filepath, submitLabel="{projectName}"):
+    def createJob(self, nodes, edges, filepath, submitLabel="{projectName}"):
 
         projectName = os.path.splitext(os.path.basename(filepath))[0]
         name = submitLabel.format(projectName=projectName)
@@ -128,6 +130,7 @@ class SimpleFarmSubmitter(BaseSubmitter):
             nodeNameToTask[node.name] = task
 
         for u, v in edges:
+            print(f"Task {nodeNameToTask[u.name]} dependsOn {nodeNameToTask[v.name]}")
             nodeNameToTask[u.name].dependsOn(nodeNameToTask[v.name])
 
         if self.engine == 'tractor-dummy':
