@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import getpass
 from meshroom.core.submitter import BaseSubmitter, SubmitterOptions, SubmitterOptionsEnum
 import tractorSubmitter.api.tractorJobQuery as tq
@@ -8,11 +9,28 @@ from tractorSubmitter.api.base import getRequestPackages
 from tractorSubmitter.api.tractorJobCreation import Task, Job
 from tractorSubmitter.api.subtaskCreator import queueChunkTask
 
+import meshroom
 from meshroom.core.submitter import BaseSubmittedJob
 from meshroom.core.node import Status
 
 currentDir = os.path.dirname(os.path.realpath(__file__))
 binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
+
+
+class TractorTaskReturnCode:
+    SUCCESS = 0
+    ERROR = 1
+    ERROR_NO_RETRY = -999
+
+    @classmethod
+    def kill_current_process(cls, allow_auto_retry=True):
+        return_code = cls.ERROR
+        if not allow_auto_retry:
+            return_code = cls.ERROR_NO_RETRY
+            print(f"This job return '{return_code}' error code in order to prevent Tractor autoretry")
+        # Farm trick to force exit status and prevent auto retry
+        sys.stdout.write('TR_EXIT_STATUS {}'.format(return_code))
+        sys.stdout.flush()
 
 
 class TractorJob(BaseSubmittedJob):
@@ -239,6 +257,7 @@ class TractorSubmitter(BaseSubmitter):
 
     def createChunkTask(self, node, graphFile, **kwargs):
         """
+        Create chunk tasks for the given node
         Keyword args : cache, forceStatus, forceCompute
         """
         taskTags = self.DEFAULT_TAGS.copy()
@@ -258,3 +277,9 @@ class TractorSubmitter(BaseSubmitter):
             rezPackages=self.reqPackages,
             environment=environment
         )
+
+    @staticmethod
+    def killRunningJob():
+        """ Kill the current job and prevent """
+        TractorTaskReturnCode.kill_current_process(allow_auto_retry=False)
+        sys.exit(meshroom.MeshroomExitStatus.ERROR_NO_RETRY)

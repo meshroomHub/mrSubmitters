@@ -13,6 +13,26 @@ import os
 import shlex
 import subprocess
 
+
+class TractorTaskReturnCode:
+    SUCCESS = 0
+    ERROR = 1
+    ERROR_NO_RETRY = -999
+
+    @classmethod
+    def kill_current_process(cls, allow_auto_retry=True):
+        """ I'm not sure if Tractor will immediatly kill the process so to make sure 
+        we need to call sys.exit after too
+        """
+        return_code = cls.ERROR
+        if not allow_auto_retry:
+            return_code = cls.ERROR_NO_RETRY
+            print(f"This job return '{return_code}' error code in order to prevent Tractor autoretry")
+        # Farm trick to force exit status and prevent auto retry
+        sys.stdout.write('TR_EXIT_STATUS {}'.format(return_code))
+        sys.stdout.flush()
+
+
 def main():
     if len(sys.argv) < 2:
         sys.stderr.write("Usage: tractorSubtaskWrapper.py <script> [args...]\n")
@@ -64,6 +84,9 @@ def main():
         
         sys.stderr.write(f"[tractorSubtaskWrapper] Command completed with exit code {returncode}\n")
         sys.stderr.flush()
+
+        if returncode == TractorTaskReturnCode.ERROR_NO_RETRY:
+            TractorTaskReturnCode.kill_current_process(allow_auto_retry=False)
         
         # Exit with the same code as the subprocess
         sys.exit(returncode)
