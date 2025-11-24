@@ -44,7 +44,7 @@ def tractorQuery(func):
 
 
 # 
-# Query job/task infos
+# Query job/task information
 # 
 
 JOB_KEYS = [
@@ -61,7 +61,7 @@ def getJob(tq, jid):
         return job
     return None
 
-def getCurrentRunningJobInfos():
+def getCurrentRunningJobInfo():
     jid = int(os.environ.get("TR_ENV_JID", -1))
     if jid < 0:
         return None
@@ -114,7 +114,7 @@ def getTask(tq, jid, tid):
         return task
     return None
 
-def getCurrentRunningTaskInfos():
+def getCurrentRunningTaskInfo():
     jid = int(os.environ.get("TR_ENV_JID", -1))
     tid = int(os.environ.get("TR_ENV_TID", -1))
     if jid < 0 or tid < 0:

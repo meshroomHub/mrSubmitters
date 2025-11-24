@@ -17,7 +17,7 @@ import sys
 import os
 import json
 import shlex
-from tractorSubmitter.api.base import TaskInfos, ChunkTaskInfos
+from tractorSubmitter.api.base import TaskInfo, ChunkTaskInfo
 
 
 # Original stdout file descriptor
@@ -151,7 +151,7 @@ def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environm
         return
     chunkRangeParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
     licenses = node.nodeDesc._licenses
-    taskInfos = TaskInfos(
+    taskInfo = TaskInfo(
         node.name, 
         cmdArgs,
         nodeUid=node._uid,
@@ -163,11 +163,11 @@ def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environm
         expandingTask=False,
         chunkParams=chunkRangeParams
     )
-    for chunk in TaskInfos.getChunks(chunkRangeParams):
-        chunkInfos = ChunkTaskInfos(taskInfos, chunk)
+    for chunk in TaskInfo.getChunks(chunkRangeParams):
+        chunkInfo = ChunkTaskInfo(taskInfo, chunk)
         # title, argv, service, metadata
-        chunkParams = chunkInfos.cook()
+        chunkParams = chunkInfo.cook()
         # limits, envkey
-        chunkParams['limits'] = taskInfos.limits
-        chunkParams['envkey'] = taskInfos.envkey
+        chunkParams['limits'] = taskInfo.limits
+        chunkParams['envkey'] = taskInfo.envkey
         queueSubtask(**chunkParams)

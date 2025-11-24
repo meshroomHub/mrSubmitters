@@ -5,7 +5,7 @@ import logging
 from tractorSubmitter.api.base import Chunk
 from tractorSubmitter.api.base import TRACTOR_JOB_URL, PRIORITY_DICT
 from tractorSubmitter.api.base import toTractorEnv
-from tractorSubmitter.api.base import TaskInfos, ChunkTaskInfos, JobInfos
+from tractorSubmitter.api.base import TaskInfo, ChunkTaskInfo, JobInfo
 
 from tractor.api import author as tractorAuthor
 
@@ -23,31 +23,31 @@ class TractorTask:
         self.chunkTasks[chunk] = task
 
 
-def cookTractorTask(taskInfos: TaskInfos) -> TractorTask:
+def cookTractorTask(taskInfo: TaskInfo) -> TractorTask:
     """
-    Cook a tractor task depending on taskInfos
+    Cook a tractor task depending on taskInfo
     Returns a TractorTask object with the tractor task, and chunk tasks
     
     # TODO : there is only one command for each task so looping over .cmds seems useless
     """
-    taskKwargs = taskInfos.cook()
+    taskKwargs = taskInfo.cook()
     tractorTask = tractorAuthor.Task(**taskKwargs)
     res = TractorTask(tractorTask)
-    if taskInfos.chunks:
-        for chk in taskInfos.chunks:
-            chunkTaskKwargs = ChunkTaskInfos(taskInfos, chk).cook()
+    if taskInfo.chunks:
+        for chk in taskInfo.chunks:
+            chunkTaskKwargs = ChunkTaskInfo(taskInfo, chk).cook()
             chunkTractorTask = tractorTask.newTask(**chunkTaskKwargs)
             for cmd in chunkTractorTask.cmds:
-                cmd.tags = taskInfos.limits
-                cmd.envkey = taskInfos.envkey
+                cmd.tags = taskInfo.limits
+                cmd.envkey = taskInfo.envkey
             res.addChunkTask(chk, chunkTractorTask)
     else:
         for cmd in tractorTask.cmds:
-            cmd.tags = taskInfos.limits
-            cmd.envkey = taskInfos.envkey
-            cmd.expand = taskInfos.expandingTask
-            # if taskInfos.expandingTask:
-            #     cmd.expand = taskInfos.expandingFile
+            cmd.tags = taskInfo.limits
+            cmd.envkey = taskInfo.envkey
+            cmd.expand = taskInfo.expandingTask
+            # if taskInfo.expandingTask:
+            #     cmd.expand = taskInfo.expandingFile
     return res
 
 
@@ -58,16 +58,16 @@ class Task:
     tasks for chunks.
     """
     
-    def __init__(self, taskInfos: TaskInfos):
-        self.taskInfos = taskInfos
+    def __init__(self, taskInfo: TaskInfo):
+        self.taskInfo = taskInfo
         self._children = set()
         self._parents = set()
     
     def __repr__(self):
-        return f"<Task {self.taskInfos.name} {self.taskInfos.uid}>"
+        return f"<Task {self.taskInfo.name} {self.taskInfo.uid}>"
     
     def __hash__(self):
-        return hash(frozenset(["TractorTask", self.taskInfos.name, self.taskInfos.uid]))
+        return hash(frozenset(["TractorTask", self.taskInfo.name, self.taskInfo.uid]))
     
     def __eq__(self, __value: object) -> bool:
         return hash(self) == hash(__value)
@@ -108,10 +108,10 @@ class TaskGraph:
     
     def cookTask(self, task: Task):
         """ Cook task, chunk tasks, and set tasks dependencies """
-        if task.taskInfos.uid not in self.__cooked:
-            logging.info(f"TractorSubmitter: Create Tractor Task: {task.taskInfos.name}")
-            tractorTask = cookTractorTask(task.taskInfos)
-            self.__cooked[task.taskInfos.uid] = tractorTask
+        if task.taskInfo.uid not in self.__cooked:
+            logging.info(f"TractorSubmitter: Create Tractor Task: {task.taskInfo.name}")
+            tractorTask = cookTractorTask(task.taskInfo)
+            self.__cooked[task.taskInfo.uid] = tractorTask
             for child in task._children:
                 childTask = self.cookTask(child)
                 if tractorTask.chunkTasks:
@@ -119,7 +119,7 @@ class TaskGraph:
                         chkTask.addChild(childTask)
                 else:
                     tractorTask.task.addChild(childTask)
-        return self.__cooked[task.taskInfos.uid].task
+        return self.__cooked[task.taskInfo.uid].task
     
     def cook(self, jobTask):
         """ Cook the graph (i.e. create all tractor tasks) and dependencies
@@ -132,7 +132,7 @@ class TaskGraph:
 
 class Job:
     def __init__(self, name, tags=None, requirements=None, environment=None, user=None, comment="", paused=False):
-        self.jobInfos = JobInfos(
+        self.jobInfo = JobInfo(
             name, 
             share="", 
             service=requirements, 
@@ -147,7 +147,7 @@ class Job:
     def createTask(self, name, commandArgs, uid, nodeCache="", tags=None, rezPackages=None, service=None, 
                    licenses=None, expandingTask=False, chunkParams=None) -> Task:
         """ Add task and make sure it is unique """
-        taskInfos = TaskInfos(
+        taskInfo = TaskInfo(
             name=name,
             cmdArgs=commandArgs,
             nodeUid=uid,
@@ -159,7 +159,7 @@ class Job:
             expandingTask=expandingTask, 
             chunkParams=chunkParams
         )
-        task = Task(taskInfos)
+        task = Task(taskInfo)
         # Dont add the task if it has already been created
         for t in self._graph._tasks:
             if t == task:
@@ -171,10 +171,10 @@ class Job:
     def cook(self):
         """ Cook job and tasks graph """
         # Create job
-        tractorJob = tractorAuthor.Job(**self.jobInfos.cook())
+        tractorJob = tractorAuthor.Job(**self.jobInfo.cook())
         serialsubtasks = (len(self._graph.leaves) == 1)
         # Create the job task (no command, at the graph root)
-        jobTask = tractorJob.newTask(title=self.jobInfos.name, argv=None, serialsubtasks=serialsubtasks)
+        jobTask = tractorJob.newTask(title=self.jobInfo.name, argv=None, serialsubtasks=serialsubtasks)
         self._graph.cook(jobTask)
         if len(self._graph) == 0:
             # tractor API will raise a RequiredValueError if no task are in job so we add a dummy one
@@ -185,7 +185,7 @@ class Job:
     def submit(self, priority="normal", share="", dryRun=False, block=False):
         """Submit to Tractor, or print TCL if dryRun."""
         if share:
-            self.jobInfos.share = share
+            self.jobInfo.share = share
 
         job = self.cook()
         job.priority = PRIORITY_DICT.get(priority, PRIORITY_DICT["normal"])
@@ -195,5 +195,5 @@ class Job:
             logging.info(job.asTcl())
             return {}
         else:
-            jid = job.spool(block=block, owner=self.jobInfos.user)
+            jid = job.spool(block=block, owner=self.jobInfo.user)
             return {"id": jid, "url": TRACTOR_JOB_URL.format(jid=jid)}

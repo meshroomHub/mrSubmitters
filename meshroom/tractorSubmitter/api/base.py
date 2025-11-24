@@ -134,7 +134,7 @@ def toTractorEnv(environment):
 # Because they rely a lot of args and the args are often generated
 # through execution context.
 # 
-# Here are some infos on how the jobs and tasks are created :
+# Here are some information on how the jobs and tasks are created :
 # 
 # [JOB]
 # - A job has an internal representation of a graph of tasks
@@ -159,7 +159,7 @@ def toTractorEnv(environment):
 # - The task simply executes the meshroom_compute command
 # 
 
-class JobInfos:
+class JobInfo:
     def __init__(self, name, share=None, service=None, environment=None, tags=None, user=None, comment="", paused=False):
         self.name = name
         self.share = self.getShare(share)
@@ -199,7 +199,7 @@ class JobInfos:
         }
 
 
-class TaskInfos:
+class TaskInfo:
     def __init__(self, name, cmdArgs, nodeUid, cacheFolder="", 
                  environment=None, rezPackages=None, 
                  service=None, licenses=None, tags=None, 
@@ -304,29 +304,29 @@ class TaskInfos:
         }
 
 
-class ChunkTaskInfos:
+class ChunkTaskInfo:
     """
     In the case where chunks are already created, and that there are multiple chunks
     we will create the chunks from the submitter process.
-    Here the taskInfos corresponds to the task for the node, and we create an instance of 
-    ChunkTaskInfos per chunk that handles generating infos for the chunk task
+    Here the taskInfo corresponds to the task for the node, and we create an instance of 
+    ChunkTaskInfo per chunk that handles generating information for the chunk task
     """
-    def __init__(self, taskInfos, chunk):
-        self.taskInfos: TaskInfos = taskInfos
+    def __init__(self, taskInfo, chunk):
+        self.taskInfo: TaskInfo = taskInfo
         self.chunk: Chunk = chunk
 
     def cook(self):
-        title = f"{self.taskInfos.name}_{self.chunk.start}_{self.chunk.end}"
+        title = f"{self.taskInfo.name}_{self.chunk.start}_{self.chunk.end}"
         # Update cmd
-        cmd = f"meshroom_compute {self.taskInfos.taskCommandArgs}"
+        cmd = f"meshroom_compute {self.taskInfo.taskCommandArgs}"
         cmd = f"{cmd} --iteration {self.chunk.iteration}"
-        cmd = rezWrapCommand(cmd, otherRezPkg=self.taskInfos.rezPackages)
+        cmd = rezWrapCommand(cmd, otherRezPkg=self.taskInfo.rezPackages)
         # Update tags
-        chunkTags = self.taskInfos.tags.copy()
+        chunkTags = self.taskInfo.tags.copy()
         chunkTags["iteration"] = self.chunk.iteration
         return {
             "title": title,
             "argv": shlex.split(cmd),  # Never None
-            "service": self.taskInfos.service,
+            "service": self.taskInfo.service,
             "metadata": json.dumps(chunkTags),
         }

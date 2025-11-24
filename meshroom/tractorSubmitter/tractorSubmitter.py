@@ -46,7 +46,7 @@ class TractorJob(BaseSubmittedJob):
         self.__tractorJob = None
         self.__tractorJobTasks = None
 
-    def printInfos(self):
+    def printInfo(self):
         print(f"[Tractor Job] {self.jid}")
         print(f"        job : {self.tractorJob}")
         print(f"      tasks : ")
@@ -57,7 +57,7 @@ class TractorJob(BaseSubmittedJob):
                 uid = meta.get("uid")
             print(f"            - [{uid}] {task}")
 
-    def __getTractorInfos(self):
+    def __getTractorInfo(self):
         """ Find job """
         self.__tractorJob = tq.getJob(self.jid)
         self.__tractorJobTasks = tq.getJobTasks(self.jid)
@@ -65,13 +65,13 @@ class TractorJob(BaseSubmittedJob):
     @property
     def tractorJob(self):
         if not self.__tractorJob:
-            self.__getTractorInfos()
+            self.__getTractorInfo()
         return self.__tractorJob
 
     @property
     def tractorJobTasks(self):
         if not self.__tractorJobTasks:
-            self.__getTractorInfos()
+            self.__getTractorInfo()
         return self.__tractorJobTasks
 
     def __getChunkTasks(self, nodeUid, iteration):
