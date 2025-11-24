@@ -271,7 +271,8 @@ class TaskInfo:
     def envkey(self):
         return toTractorEnv(self.environment)
     
-    def getEpandWrappedCmd(self):
+
+    def getExpandWrappedCmd(self):
         cmd = self.taskCommandArgs
         # Wrap with create_chunks
         cmd = f"meshroom_createChunks --submitter Tractor {cmd}"
@@ -287,8 +288,8 @@ class TaskInfo:
     def cook(self):
         if self.expandingTask:
             # Chunks are not created yet so we use the wrapper and the task will expand itself
-            cmd = self.getEpandWrappedCmd()
-            
+            cmd = self.getExpandWrappedCmd()
+
         elif self.chunks:
             # Empty task with multiple commands (sub-tasks) to execute in parallel
             cmd = None
