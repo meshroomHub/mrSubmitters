@@ -27,9 +27,10 @@ class TractorTaskReturnCode:
         return_code = cls.ERROR
         if not allow_auto_retry:
             return_code = cls.ERROR_NO_RETRY
-            print(f"This job return '{return_code}' error code in order to prevent Tractor autoretry")
+            print(f"This job returns '{return_code}' error code in order to prevent "
+                  f"Tractor autoretry")
         # Farm trick to force exit status and prevent auto retry
-        sys.stdout.write('TR_EXIT_STATUS {}'.format(return_code))
+        sys.stdout.write(f"TR_EXIT_STATUS {return_code}")
         sys.stdout.flush()
 
 
@@ -120,7 +121,7 @@ class TractorJob(BaseSubmittedJob):
     def restartJob(self):
         """ Restarts the whole job """
         tq.restartJob(self.jid)
-    
+
     def restartErrorTasks(self):
         """ Restart all error tasks on the job """
         tq.retryErrorTasks(self.jid)
@@ -140,10 +141,10 @@ class TractorSubmitter(BaseSubmitter):
     """
     Meshroom submitter to tractor
     """
-    
+
     _name = "Tractor"
     _options = SubmitterOptions(SubmitterOptionsEnum.ALL)
-    
+
     dryRun = False
     environment = {}
     DEFAULT_TAGS = {"prod": ""}
@@ -152,7 +153,7 @@ class TractorSubmitter(BaseSubmitter):
     if not configpath:
         configpath = os.path.join(os.environ.get("MR_SUBMITTERS_CONFIGS"), "tractorConfig.py")
     config = loadConfig(configpath)
-    
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.share = os.environ.get("MESHROOM_TRACTOR_SHARE", "vfx")
@@ -166,7 +167,7 @@ class TractorSubmitter(BaseSubmitter):
             self.environment["PROD"] = os.environ["PROD"]
         if "PROD_ROOT" in os.environ:
             self.environment["PROD_ROOT"] = os.environ["PROD_ROOT"]
-    
+
     def getTaskService(self, node):
         service = self.config.get_config(
             cpu=node.nodeDesc.cpu.value,
@@ -175,7 +176,7 @@ class TractorSubmitter(BaseSubmitter):
             excludeHosts=[]
         )
         return service
-    
+
     def retrieveJob(self, jid) -> TractorJob:
         job = TractorJob(jid, self)
         return job
@@ -194,7 +195,8 @@ class TractorSubmitter(BaseSubmitter):
                     iterationsToIgnore.append(c.range.iteration)
             if nbBlocks > 0:
                 optionalArgs["chunkParams"] = {
-                    "start": 0, "end": nbBlocks - 1, "step": 1, "ignoreIterations": iterationsToIgnore
+                    "start": 0, "end": nbBlocks - 1, "step": 1,
+                    "ignoreIterations": iterationsToIgnore
                 }
         else:
             optionalArgs["chunkParams"] = {"start": 0, "end": 0, "step": 1}
@@ -207,7 +209,7 @@ class TractorSubmitter(BaseSubmitter):
             name=node.name,
             commandArgs=cmdArgs,
             uid=node._uid,  # Provide unicity info
-            nodeCache=node._internalFolder, 
+            nodeCache=node._internalFolder,
             tags=tags,
             rezPackages=self.reqPackages,
             service=self.getTaskService(node),
@@ -238,7 +240,8 @@ class TractorSubmitter(BaseSubmitter):
         for node in nodes:
             if node._uid in nodeUidToTask:
                 continue  # HACK: Should not be necessary
-            # It would be better to skip inputNodes but at the same time tricky if used in between of other nodes
+            # It would be better to skip inputNodes but at the same time tricky if used in between
+            # of other nodes:
             # if node._isInputNode():
             #     continue
             task = self.createTask(job, filepath, node)
@@ -265,7 +268,8 @@ class TractorSubmitter(BaseSubmitter):
         taskTags['prod'] = self.prod
         # Environment
         environment = self.environment.copy()
-        environment['FARM_USER'] = os.environ.get('FARM_USER', os.environ.get('USER', getpass.getuser()))
+        environment['FARM_USER'] = os.environ.get('FARM_USER',
+                                                  os.environ.get('USER', getpass.getuser()))
         # Command
         cmdArgs = f"--node {node.name} \"{graphFile}\" --extern"
         # Add task to the queue

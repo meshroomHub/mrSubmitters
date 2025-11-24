@@ -79,7 +79,7 @@ def getRequestPackages(packagesDelimiter="=="):
                 continue
             v = REZ_DELIMITER_PATTERN.split(p)
             usedPackages.add(v[0])
-        # Add requested packages to the reqPackages set 
+        # Add requested packages to the reqPackages set
         resolvedVersions = getResolvedVersionsDict()
         for p in usedPackages:
             reqPackages.add(packagesDelimiter.join([p, resolvedVersions[p]]))
@@ -89,7 +89,8 @@ def getRequestPackages(packagesDelimiter="=="):
     return list(reqPackages)
 
 
-def rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True, otherRezPkg: list[str] = None):
+def rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True,
+                   otherRezPkg: list[str] = None):
     """ Wrap command to be runned using rez
     :param cmd: command to run
     :type cmd: bool
@@ -128,39 +129,41 @@ def toTractorEnv(environment):
     return [f"setenv {k}={v}" for k, v in environment.items()]
 
 
-# 
+#
 # Job and Task boilerplate code
 # Here are objects that can be used to prepare args for jobs and tasks
 # Because they rely a lot of args and the args are often generated
 # through execution context.
-# 
+#
 # Here are some information on how the jobs and tasks are created :
-# 
+#
 # [JOB]
 # - A job has an internal representation of a graph of tasks
 # - Additionally jobs have metadata and settings
 # - A job has a "job task" that does nothing, it's just there to be at the root of the graph
 # - When we build the job we create the job, then the job task
-# - Then we cook the job : we go through the tasks, create them through the tractor author API 
+# - Then we cook the job : we go through the tasks, create them through the tractor author API
 #   and add them as children to the job task or to other tasks
-# 
+#
 # [TASKS]
 # - When a task is cooked we prepare the task metadata and settings
-# - A task can be either an "expanded task" : this task will create chunk tasks, or it's a process/chunk task
-# 
+# - A task can be either an "expanded task" : this task will create chunk tasks, or it's a
+#   process/chunk task
+#
 # > Expanded task
 # - We create the task
 # - The task wraps the meshroom process that will do the necessary to create other tasks
 #   The task is created through instructions sent to the stdout at the end of this task
-# - When the task is finished if the stdout is correct, then the task expands and 
+# - When the task is finished if the stdout is correct, then the task expands and
 #   children tasks are executed
-# 
+#
 # > Chunk/Process task
 # - The task simply executes the meshroom_compute command
-# 
+#
 
 class JobInfo:
-    def __init__(self, name, share=None, service=None, environment=None, tags=None, user=None, comment="", paused=False):
+    def __init__(self, name, share=None, service=None, environment=None, tags=None, user=None,
+                 comment="", paused=False):
         self.name = name
         self.share = self.getShare(share)
         self.requirements = service or {}
@@ -200,9 +203,9 @@ class JobInfo:
 
 
 class TaskInfo:
-    def __init__(self, name, cmdArgs, nodeUid, cacheFolder="", 
-                 environment=None, rezPackages=None, 
-                 service=None, licenses=None, tags=None, 
+    def __init__(self, name, cmdArgs, nodeUid, cacheFolder="",
+                 environment=None, rezPackages=None,
+                 service=None, licenses=None, tags=None,
                  expandingTask=False, chunkParams=None):
         self.name = name
         self.uid = nodeUid
@@ -245,7 +248,8 @@ class TaskInfo:
             frameRange = list(range(start, end+1, 1))
             if frameRange:
                 slices = [frameRange[i:i + size] for i in range(0, len(frameRange), size)]
-                it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices) if i not in ignoreIterations]
+                it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)
+                      if i not in ignoreIterations]
         return it
 
     def _setExpandingTaskFile(self, cacheFolder):
@@ -270,7 +274,6 @@ class TaskInfo:
     @property
     def envkey(self):
         return toTractorEnv(self.environment)
-    
 
     def getExpandWrappedCmd(self):
         cmd = self.taskCommandArgs
@@ -279,7 +282,7 @@ class TaskInfo:
         # Wrap with rez
         cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
         # Wrap with tractor wrapper (will redirect stdout to stderr)
-        # to make sure stdout only has the 
+        # to make sure stdout only has the
         wrapperModule = "tractorSubtaskWrapper.py"
         wrapperPath = os.path.join(os.environ["MR_SUBMITTERS_SCRITPS"], wrapperModule)
         cmd = f"{sys.executable} {wrapperPath} {cmd}"
