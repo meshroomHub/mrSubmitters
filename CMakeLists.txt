@@ -11,3 +11,21 @@ install(DIRECTORY "meshroom/"
     PATTERN "*.pyi" EXCLUDE
     PATTERN "__pycache__" EXCLUDE
 )
+
+install(DIRECTORY "config/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/config"
+    PATTERN "*.pyi" EXCLUDE
+    PATTERN "__pycache__" EXCLUDE
+)
+
+install(DIRECTORY "python/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/python"
+    PATTERN "*.pyi" EXCLUDE
+    PATTERN "__pycache__" EXCLUDE
+)
+
+install(DIRECTORY "script/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/script"
+    PATTERN "*.pyi" EXCLUDE
+    PATTERN "__pycache__" EXCLUDE
+)

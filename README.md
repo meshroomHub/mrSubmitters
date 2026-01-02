@@ -19,4 +19,8 @@ def commands():
     env.MESHROOM_SUBMITTERS_PATH.append('{root}/meshroom')
     # Set default submitter
     env.MESHROOM_DEFAULT_SUBMITTER.set('Tractor')
+    # Config folder
+    env.MR_SUBMITTERS_CONFIGS.set("{root}/config")
+    # Script folder (tractor wrapper, ...)
+    env.MR_SUBMITTERS_SCRITPS.set("{root}/script")
 ```
