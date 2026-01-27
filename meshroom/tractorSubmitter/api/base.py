@@ -167,9 +167,7 @@ class JobInfo:
         self.name = name
         self.share = self.getShare(share)
         self.requirements = service or {}
-        self.service = service or os.environ.get('DEFAULT_TRACTOR_SERVICE')
-        if not self.service:
-            raise EnvironmentError('Could not find DEFAULT_TRACTOR_SERVICE in env')
+        self.service = service or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
         self.tags = tags or {}
         self.paused = paused
         self.comment = comment
@@ -215,9 +213,7 @@ class TaskInfo:
         # Rez packages
         self.rezPackages = rezPackages or []
         # self.limits
-        self.service = service or os.environ.get('DEFAULT_TRACTOR_SERVICE')
-        if not self.service:
-            raise EnvironmentError('Could not find DEFAULT_TRACTOR_SERVICE in env')
+        self.service = service or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
         self.limits = self.getLimits(licenses)
         # Tags
         self.tags = tags or {}
