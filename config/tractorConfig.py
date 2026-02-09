@@ -102,7 +102,7 @@ GPU_CONFIGS = {
         "NONE": "mikrosRender",
         "NORMAL": "mikrosRender,cuda8G",
         "INTENSIVE": "mikrosRender,cuda16G",
-        "EXTREME": "mikrosRender,cuda16G,cudaC"
+        "EXTREME": "frapcvr6003"
     },
     "RAM": {
         "NONE": "",
