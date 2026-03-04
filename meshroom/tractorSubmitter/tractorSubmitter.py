@@ -170,9 +170,9 @@ class TractorSubmitter(BaseSubmitter):
 
     def getTaskService(self, node):
         service = self.config.get_config(
-            cpu=node.nodeDesc.cpu.value,
-            ram=node.nodeDesc.ram.value,
-            gpu=node.nodeDesc.gpu.value,
+            cpu=node.cpu.value,
+            ram=node.ram.value,
+            gpu=node.gpu.value,
             excludeHosts=[]
         )
         return service
