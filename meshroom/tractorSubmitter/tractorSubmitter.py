@@ -258,7 +258,7 @@ class TractorSubmitter(BaseSubmitter):
         submittedJob = TractorJob(res.get("id"), TractorSubmitter)
         return submittedJob
 
-    def createChunkTask(self, node, graphFile, **kwargs):
+    def createChunkTask(self, node, graphFile, environment=None, **kwargs):
         """
         Create chunk tasks for the given node
         Keyword args : cache, forceStatus, forceCompute
@@ -267,9 +267,7 @@ class TractorSubmitter(BaseSubmitter):
         taskTags['nbFrames'] = node.size
         taskTags['prod'] = self.prod
         # Environment
-        environment = self.environment.copy()
-        environment['FARM_USER'] = os.environ.get('FARM_USER',
-                                                  os.environ.get('USER', getpass.getuser()))
+        environment = environment or {}
         # Command
         cmdArgs = f"--node {node.name} \"{graphFile}\" --extern"
         # Add task to the queue
