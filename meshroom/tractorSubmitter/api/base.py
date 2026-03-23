@@ -175,6 +175,8 @@ class JobInfo:
         # auto. add FARM_USER user
         self.environment = environment or {}
         self.environment['FARM_USER'] = self.user
+        if "PROD_MOUNT" in os.environ:
+            self.environment['PROD_MOUNT'] = os.environ["PROD_MOUNT"]
 
     @staticmethod
     def getShare(share):
