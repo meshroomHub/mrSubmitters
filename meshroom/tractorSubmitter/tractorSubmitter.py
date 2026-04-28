@@ -258,6 +258,15 @@ class TractorSubmitter(BaseSubmitter):
         submittedJob = TractorJob(res.get("id"), TractorSubmitter)
         return submittedJob
 
+    def submit(self, nodes, edges, filepath, submitLabel="{projectName}") -> BaseSubmittedJob:
+        """ Override BaseSubmitter `submit` method to freeze the current submitting process
+        Will be replaced after https://github.com/alicevision/Meshroom/pull/2984
+        """
+        job = self.createJob(nodes, edges, filepath, submitLabel)
+        if not job:
+            return None
+        return job
+
     def createChunkTask(self, node, graphFile, environment=None, **kwargs):
         """
         Create chunk tasks for the given node
