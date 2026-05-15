@@ -20,6 +20,7 @@ import shlex
 import shutil
 from collections import namedtuple
 import tempfile
+from typing import Optional, Tuple
 
 
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
@@ -203,9 +204,32 @@ class JobInfo:
 
 
 class TaskInfo:
-    def __init__(self, name, cmdArgs, nodeUid, cacheFolder="",
-                 environment=None, reqPackages=None, service=None, 
-                 licenses=None, taskType=None, tags=None):
+    def __init__(self, 
+                 name: str, 
+                 cmdArgs: str, 
+                 nodeUid: str, 
+                 cacheFolder: str="",
+                 environment: dict=None, 
+                 reqPackages: list=None, 
+                 service: str=None, 
+                 licenses=None, 
+                 taskType:Optional[Tuple]=None, 
+                 tags=None):
+        """Object to gather, manipulate, generate task infos
+
+        Args:
+            name: name of the task (usually the node name). 
+                  For the final title we add the task type (chunk index)
+            cmdArgs: Command to execute
+            nodeUid: Node UID
+            cacheFolder: Folder containing the node cache.
+            environment: Environment to set. Dict with key:value.
+            reqPackages: List of requested packages.
+            service: Service key expression (used for machine targeting).
+            licenses: Eequired licenses.
+            taskType: Task type and iteration if needed. Tuple[task type, iteration]
+            tags: Additional metadata to set on the task.
+        """
         self.name = name
         self.uid = nodeUid
         self.taskCommandArgs = cmdArgs
@@ -219,14 +243,15 @@ class TaskInfo:
         # Tags
         self.tags = tags or {}
         self.tags["nodeUid"] = nodeUid
-        
+
         # Expanding / Chunks
         taskType_, iteration_ = taskType or ("placeholder", None)
-        self.placeholderTask = (taskType_=="placeholder")
-        self.expandingTask = (taskType_=="expanding")
-        self.preprocessTask = (taskType_=="preprocess")
-        self.postprocessTask = (taskType_=="postprocess")
-        self.chunkTask = (taskType_=="chunk")
+        self.placeholderTask = (taskType_ == "placeholder")
+        self.expandingTask = (taskType_ == "expanding")
+        self.preprocessTask = (taskType_ == "preprocess")
+        self.postprocessTask = (taskType_ == "postprocess")
+        self.chunkTask = (taskType_ == "chunk")  
+
         self.iteration = iteration_
 
     @staticmethod

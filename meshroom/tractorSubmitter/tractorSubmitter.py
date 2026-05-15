@@ -5,8 +5,7 @@ import sys
 import shutil
 import getpass
 import logging
-from collections import namedtuple
-from typing import Dict, List
+from typing import Dict, List, Union
 
 # ========== Tractor ==========
 from tractor.api import author as tractorAuthor
@@ -30,8 +29,6 @@ from meshroom.core.submitter import (
 
 currentDir = os.path.dirname(os.path.realpath(__file__))
 binDir = os.path.dirname(os.path.dirname(os.path.dirname(currentDir)))
-
-CreatedTask = namedtuple("task", ["task", "chunkParams"])
 
 
 def wrapMeshroomBin(_bin):
@@ -62,6 +59,7 @@ class Task:
             cmd.tags = self.taskInfos.limits
             cmd.envkey = self.taskInfos.envkey
             cmd.expand = self.taskInfos.expandingTask
+            # If we use a file for expanding task instead we could use this :
             # if taskInfos.expandingTask:
             #     cmd.expand = taskInfos.expandingFile
 
@@ -79,20 +77,20 @@ class Job:
             paused=paused
         )
         self.tasks : List[Task] = []
-        self.taskTependencies = {}  # task: [tasks that the task depends on]
+        self.taskDependencies = {}  # task: [tasks that the task depends on]
     
     def addTask(self, task: Task):
         self.tasks.append(task)
-        self.taskTependencies[task] = []
+        self.taskDependencies[task] = []
 
     def addTaskDependency(self, parentTask: Task, childTask: Task):
         parentTask.tractorTask.addChild(childTask.tractorTask)
-        self.taskTependencies[parentTask].append(childTask)
+        self.taskDependencies[parentTask].append(childTask)
 
     def getRootTasks(self):
         """ Get all tasks that are not children of other tasks """
         tasksWithoutDeps = set(self.tasks)
-        for _, childTasks in self.taskTependencies.items():
+        for _, childTasks in self.taskDependencies.items():
             for task in childTasks:
                 if task not in tasksWithoutDeps:
                     continue
@@ -101,7 +99,7 @@ class Job:
 
     @staticmethod
     def createDummyTask(tractorJob: tractorAuthor.Job):
-        """ tractor API will raise a RequiredValueError if no task are 
+        """ Tractor API will raise a RequiredValueError if no task is 
         in the job so we add a dummy one. 
         Note that the job will not even appear in Tractor web ui.
         """
@@ -137,7 +135,7 @@ class Job:
         tractorJob.priority = PRIORITY_DICT.get(priority, PRIORITY_DICT["normal"])
 
         if dryRun:
-            logging.info("TractorSubmitter: Job in TCL format :")
+            logging.info("TractorSubmitter: Job in TCL format")
             logging.info(tractorJob.asTcl())
             return {}
         else:
@@ -327,8 +325,6 @@ class TractorSubmitter(BaseSubmitter):
             taskType = ("postprocess", None)
         elif orderedTask.taskType == OrderedTaskType.EXPANDING:
             taskType = ("expanding", None)
-        elif orderedTask.taskType == OrderedTaskType.PLACEHOLDER:
-            taskType = (None, None)
         else:
             raise ValueError(f"Unknown OrderedTaskType type {orderedTask.taskType}")
 
@@ -359,7 +355,7 @@ class TractorSubmitter(BaseSubmitter):
         task = Task(command=cmdArgs, **taskParams)
         return task
 
-    def createJob(self, orderedTasks: OrderedTasks, filepath, submitLabel="{projectName}") -> TractorJob:
+    def createJob(self, orderedTasks: OrderedTasks, filepath, submitLabel="{projectName}") -> Union[TractorJob, bool]:
         # Create job
         projectName = os.path.splitext(os.path.basename(filepath))[0]
         name = submitLabel.format(projectName=projectName)

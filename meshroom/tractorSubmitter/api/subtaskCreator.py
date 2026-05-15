@@ -144,23 +144,6 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     log(f"Queued subtask: {title}")
 
 
-def getChunks(chunkParams):
-    it = None
-    ignoreIterations = chunkParams.get("ignoreIterations", [])
-    if chunkParams:
-        start, end = chunkParams.get("start", -1), chunkParams.get("end", -2)
-        size = 1
-        frameRange = list(range(start, end+1, 1))
-        if frameRange:
-            it = [
-                Chunk(i, )
-            ]
-            slices = [frameRange[i : i+1] for i in range(0, len(frameRange))]
-            it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)
-                    if i not in ignoreIterations]
-    return it
-
-
 def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environment=None):
     blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
     if nbBlocks <= 0:
