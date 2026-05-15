@@ -17,7 +17,7 @@ import sys
 import os
 import json
 import shlex
-from tractorSubmitter.api.base import TaskInfo, ChunkTaskInfo
+from tractorSubmitter.api.base import TaskInfo
 
 
 # Original stdout file descriptor
@@ -144,30 +144,44 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     log(f"Queued subtask: {title}")
 
 
-def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environment=None):
-    chunkRangeParams = None
+def getChunks(chunkParams):
+    it = None
+    ignoreIterations = chunkParams.get("ignoreIterations", [])
+    if chunkParams:
+        start, end = chunkParams.get("start", -1), chunkParams.get("end", -2)
+        size = 1
+        frameRange = list(range(start, end+1, 1))
+        if frameRange:
+            it = [
+                Chunk(i, )
+            ]
+            slices = [frameRange[i : i+1] for i in range(0, len(frameRange))]
+            it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)
+                    if i not in ignoreIterations]
+    return it
+
+
+def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environment=None):
     blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
     if nbBlocks <= 0:
         return
-    chunkRangeParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
     licenses = node.nodeDesc._licenses
-    taskInfo = TaskInfo(
-        node.name, 
-        cmdArgs,
-        nodeUid=node._uid,
-        environment=environment,
-        rezPackages=rezPackages,
-        service=service,
-        licenses=licenses,
-        tags=tags.copy() if tags else None,
-        expandingTask=False,
-        chunkParams=chunkRangeParams
-    )
-    for chunk in TaskInfo.getChunks(chunkRangeParams):
-        chunkInfo = ChunkTaskInfo(taskInfo, chunk)
+    
+    for iteration in range(nbBlocks):
+        taskInfo = TaskInfo(
+            name=node.name, 
+            cmdArgs=cmdArgs,
+            nodeUid=node._uid,
+            environment=environment,
+            reqPackages=reqPackages,
+            service=service,
+            licenses=licenses,
+            taskType=("chunk", iteration),
+            tags=tags.copy() if tags else None,
+        )
         # title, argv, service, metadata
-        chunkParams = chunkInfo.cook()
+        taskArgs = taskInfo.cook()
         # limits, envkey
-        chunkParams['limits'] = taskInfo.limits
-        chunkParams['envkey'] = taskInfo.envkey
-        queueSubtask(**chunkParams)
+        taskArgs['limits'] = taskInfo.limits
+        taskArgs['envkey'] = taskInfo.envkey
+        queueSubtask(**taskArgs)
