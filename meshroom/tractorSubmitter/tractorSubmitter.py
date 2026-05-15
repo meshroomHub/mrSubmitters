@@ -375,7 +375,7 @@ class TractorSubmitter(BaseSubmitter):
         logging.debug("Ordered Tasks:")
         orderedTasks.display()
         createdTasks: Dict[OrderedTask, Task] = dict()
-        for taskToCreate in orderedTasks.iterOnTasks():
+        for taskToCreate in orderedTasks.iterOnTasks(skipRootTask=True):
             if taskToCreate in createdTasks.keys():
                 continue
             createdTask = self.createTask(filepath, taskToCreate, createdTasks, jobName=name)
