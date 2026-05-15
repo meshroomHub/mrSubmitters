@@ -114,17 +114,17 @@ class Job:
         # Create the job task (no command, at the graph root)
         rootTasks = self.getRootTasks()
         serialsubtasks = len(rootTasks) == 1
-        jobTask = tractorJob.newTask(title=self.jobInfo.name, argv=None, serialsubtasks=serialsubtasks)
-        for task in rootTasks:
-            jobTask.addChild(task.tractorTask)
+        if not serialsubtasks:
+            rootTaskName = self.jobInfo.name + " (root)"
+            rootTask = tractorJob.newTask(title=rootTaskName, argv=None, serialsubtasks=serialsubtasks)
+            for task in rootTasks:
+                rootTask.addChild(task.tractorTask)
         # Cook tasks
         taskToTractorTask = {}
         for task in self.tasks:
             tractorTask = task.tractorTask
             tractorJob.addChild(tractorTask)
             taskToTractorTask[task] = tractorTask
-        # Create dependencies
-        # TODO
 
     def submit(self, priority="normal", share="", dryRun=False, block=False):
         """Submit to Tractor, or print TCL if dryRun."""
@@ -309,12 +309,13 @@ class TractorSubmitter(BaseSubmitter):
         job = TractorJob(jid, self)
         return job
 
-    def createTask(self, meshroomFile: str, orderedTask: OrderedTask, createdTasks: Dict[OrderedTask, Task]) -> Task:
+    def createTask(self, meshroomFile: str, orderedTask: OrderedTask, createdTasks: Dict[OrderedTask, Task], **kwargs) -> Task:
         node = orderedTask.node
-        print(f"[CreateTask] orderedTask={orderedTask}, node={node}")
         if orderedTask.taskType == OrderedTaskType.PLACEHOLDER:
+            defaultName = kwargs.get("jobName", "")
+            defaultName += " (placeholder)"
             return Task(
-                name=orderedTask.node.name if orderedTask.node else "", 
+                name=orderedTask.node.name if orderedTask.node else defaultName, 
                 command="", 
             )
 
@@ -375,18 +376,15 @@ class TractorSubmitter(BaseSubmitter):
             user=os.environ.get('FARM_USER', os.environ.get('USER', getpass.getuser())),
         )
         # Add tasks
-        print("Ordered Tasks:")
+        logging.debug("Ordered Tasks:")
         orderedTasks.display()
         createdTasks: Dict[OrderedTask, Task] = dict()
         for taskToCreate in orderedTasks.iterOnTasks():
             if taskToCreate in createdTasks.keys():
                 continue
-            createdTask = self.createTask(filepath, taskToCreate, createdTasks)
+            createdTask = self.createTask(filepath, taskToCreate, createdTasks, jobName=name)
             job.addTask(createdTask)
             createdTasks[taskToCreate] = createdTask
-        
-        for orderedTask, task in createdTasks.items():
-            print(orderedTask, "->", task)
         
         for orderedTask, task in createdTasks.items():
             deps = [createdTasks.get(t) for t in orderedTask.dependencies]
