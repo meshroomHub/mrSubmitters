@@ -4,7 +4,7 @@
 Helper functions to create subtasks
 
 Provides queueSubtask() to write Tractor subtask definitions to stdout.
-Works with tractorSubtaskWrapper.py to ensure proper stream handling.
+Works with tractorExpander.py to ensure proper stream handling.
 
 Example :
 >>> from tractorSubmitter.api.subtaskCreator import queueSubtask
@@ -17,7 +17,7 @@ import sys
 import os
 import json
 import shlex
-from tractorSubmitter.api.base import TaskInfo, ChunkTaskInfo
+from tractorSubmitter.api.base import TaskInfo
 
 
 # Original stdout file descriptor
@@ -38,16 +38,16 @@ def _getCachedSubtaskStdout():
     """
     global _stdout
     if _stdout is None:
-        if 'TRACTOR_SUBTASK_STDOUT_FD' in os.environ:
+        if 'TRACTOR_STDOUT_FD' in os.environ:
             try:
-                fd = int(os.environ['TRACTOR_SUBTASK_STDOUT_FD'])
+                fd = int(os.environ['TRACTOR_STDOUT_FD'])
                 # Open the file descriptor for writing
                 _stdout = os.fdopen(fd, 'w', buffering=1)
             except (ValueError, OSError):
-                raise RuntimeError("(_getCachedSubtaskStdout) Could not open TRACTOR_SUBTASK_STDOUT_FD")
+                raise RuntimeError("(_getCachedSubtaskStdout) Could not open TRACTOR_STDOUT_FD")
             log(f"(_getCachedSubtaskStdout) stdout={_stdout}")
         else:
-            raise FileNotFoundError("(_getCachedSubtaskStdout) Could not find TRACTOR_SUBTASK_STDOUT_FD")
+            raise FileNotFoundError("(_getCachedSubtaskStdout) Could not find TRACTOR_STDOUT_FD")
     return _stdout
 
 
@@ -144,30 +144,27 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     log(f"Queued subtask: {title}")
 
 
-def queueChunkTask(node, cmdArgs, service, tags=None, rezPackages=None, environment=None):
-    chunkRangeParams = None
+def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environment=None):
     blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
     if nbBlocks <= 0:
         return
-    chunkRangeParams = {'start': 0, 'end': nbBlocks - 1, 'step': 1}
     licenses = node.nodeDesc._licenses
-    taskInfo = TaskInfo(
-        node.name, 
-        cmdArgs,
-        nodeUid=node._uid,
-        environment=environment,
-        rezPackages=rezPackages,
-        service=service,
-        licenses=licenses,
-        tags=tags.copy() if tags else None,
-        expandingTask=False,
-        chunkParams=chunkRangeParams
-    )
-    for chunk in TaskInfo.getChunks(chunkRangeParams):
-        chunkInfo = ChunkTaskInfo(taskInfo, chunk)
+    
+    for iteration in range(nbBlocks):
+        taskInfo = TaskInfo(
+            name=node.name, 
+            cmdArgs=cmdArgs,
+            nodeUid=node._uid,
+            environment=environment,
+            reqPackages=reqPackages,
+            service=service,
+            licenses=licenses,
+            taskType=("chunk", iteration),
+            tags=tags.copy() if tags else None,
+        )
         # title, argv, service, metadata
-        chunkParams = chunkInfo.cook()
+        taskArgs = taskInfo.cook()
         # limits, envkey
-        chunkParams['limits'] = taskInfo.limits
-        chunkParams['envkey'] = taskInfo.envkey
-        queueSubtask(**chunkParams)
+        taskArgs['limits'] = taskInfo.limits
+        taskArgs['envkey'] = taskInfo.envkey
+        queueSubtask(**taskArgs)

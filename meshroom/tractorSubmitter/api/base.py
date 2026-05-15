@@ -20,6 +20,7 @@ import shlex
 import shutil
 from collections import namedtuple
 import tempfile
+from typing import Optional, Tuple
 
 
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
@@ -203,29 +204,55 @@ class JobInfo:
 
 
 class TaskInfo:
-    def __init__(self, name, cmdArgs, nodeUid, cacheFolder="",
-                 environment=None, rezPackages=None,
-                 service=None, licenses=None, tags=None,
-                 expandingTask=False, chunkParams=None):
+    def __init__(self, 
+                 name: str, 
+                 cmdArgs: str, 
+                 nodeUid: str, 
+                 cacheFolder: str="",
+                 environment: dict=None, 
+                 reqPackages: list=None, 
+                 service: str=None, 
+                 licenses=None, 
+                 taskType:Optional[Tuple]=None, 
+                 tags=None):
+        """Object to gather, manipulate, generate task infos
+
+        Args:
+            name: name of the task (usually the node name). 
+                  For the final title we add the task type (chunk index)
+            cmdArgs: Command to execute
+            nodeUid: Node UID
+            cacheFolder: Folder containing the node cache.
+            environment: Environment to set. Dict with key:value.
+            reqPackages: List of requested packages.
+            service: Service key expression (used for machine targeting).
+            licenses: Eequired licenses.
+            taskType: Task type and iteration if needed. Tuple[task type, iteration]
+            tags: Additional metadata to set on the task.
+        """
         self.name = name
         self.uid = nodeUid
         self.taskCommandArgs = cmdArgs
         # Env
         self.environment = environment or {}
-        # Rez packages
-        self.rezPackages = rezPackages or []
+        # Requested packages
+        self.reqPackages = reqPackages or []
         # self.limits
         self.service = service or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
         self.limits = self.getLimits(licenses)
         # Tags
         self.tags = tags or {}
         self.tags["nodeUid"] = nodeUid
+
         # Expanding / Chunks
-        self.expandingTask = expandingTask
-        # self.expandingFile = self._setExpandingTaskFile(cacheFolder)
-        self.chunks = []
-        if not expandingTask:
-            self.chunks = self.getChunks(chunkParams)
+        taskType_, iteration_ = taskType or ("placeholder", None)
+        self.placeholderTask = (taskType_ == "placeholder")
+        self.expandingTask = (taskType_ == "expanding")
+        self.preprocessTask = (taskType_ == "preprocess")
+        self.postprocessTask = (taskType_ == "postprocess")
+        self.chunkTask = (taskType_ == "chunk")  
+
+        self.iteration = iteration_
 
     @staticmethod
     def getLimits(licenses=None):
@@ -234,21 +261,6 @@ class TaskInfo:
         if 'DEFAULT_TRACTOR_LIMIT' in os.environ:
             taskLimits.append(os.environ['DEFAULT_TRACTOR_LIMIT'])
         return taskLimits
-
-    @staticmethod
-    def getChunks(chunkParams) -> list[Chunk]:
-        """ Get list of chunks """
-        it = None
-        ignoreIterations = chunkParams.get("ignoreIterations", [])
-        if chunkParams:
-            start, end = chunkParams.get("start", -1), chunkParams.get("end", -2)
-            size = chunkParams.get("packetSize", 1)
-            frameRange = list(range(start, end+1, 1))
-            if frameRange:
-                slices = [frameRange[i:i + size] for i in range(0, len(frameRange), size)]
-                it = [Chunk(i, item[0], item[-1]) for i, item in enumerate(slices)
-                      if i not in ignoreIterations]
-        return it
 
     def _setExpandingTaskFile(self, cacheFolder):
         """ Doesn't work with current python API ! 
@@ -273,62 +285,41 @@ class TaskInfo:
     def envkey(self):
         return toTractorEnv(self.environment)
 
-    def getExpandWrappedCmd(self):
-        cmd = self.taskCommandArgs
-        # Wrap with create_chunks
-        cmd = f"meshroom_createChunks --submitter Tractor {cmd}"
-        # Wrap with rez
-        cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
-        # Wrap with tractor wrapper (will redirect stdout to stderr)
-        # to make sure stdout only has the
-        wrapperModule = "tractorSubtaskWrapper.py"
-        wrapperPath = os.path.join(os.environ["MR_SUBMITTERS_SCRITPS"], wrapperModule)
-        cmd = f"{sys.executable} {wrapperPath} {cmd}"
-        return cmd
-
     def cook(self):
+        title = f"{self.name}"
+        tags = self.tags
+        cmd = self.taskCommandArgs
+        if self.preprocessTask:
+            cmd += f" --preprocess"
+            title += "_preprocess"
+            tags["iteration"] = "preprocess"
+        elif self.postprocessTask:
+            cmd += f" --postprocess"
+            title += "_postprocess"
+            tags["iteration"] = "postprocess"
+        elif self.chunkTask:
+            if self.iteration >= 0:
+                title += f"_{self.iteration}"
+            else:
+                title += f"_0"
+            cmd += f" --iteration {self.iteration}"
+            tags["iteration"] = self.iteration
+        
         if self.expandingTask:
-            # Chunks are not created yet so we use the wrapper and the task will expand itself
-            cmd = self.getExpandWrappedCmd()
-
-        elif self.chunks:
-            # Empty task with multiple commands (sub-tasks) to execute in parallel
+            cmd = rezWrapCommand(cmd, otherRezPkg=self.reqPackages)
+            # Wrap with tractor wrapper (will redirect stdout to stderr)
+            # to make sure stdout only has the
+            wrapperModule = "tractorExpander.py"
+            wrapperPath = os.path.join(os.environ["MR_SUBMITTERS_SCRITPS"], wrapperModule)
+            cmd = f"{sys.executable} {wrapperPath} {cmd}"
+        elif self.placeholderTask:
             cmd = None
         else:
-            # Simple task with only one command to execute
-            cmd = f"meshroom_compute {self.taskCommandArgs}"
-            cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
+            cmd = rezWrapCommand(cmd, otherRezPkg=self.reqPackages)
+
         return {
-            "title": self.name,
+            "title": title,
             "argv": shlex.split(cmd) if cmd else cmd,
             "service": self.service,
             "metadata": json.dumps(self.tags)
-        }
-
-
-class ChunkTaskInfo:
-    """
-    In the case where chunks are already created, and that there are multiple chunks
-    we will create the chunks from the submitter process.
-    Here the taskInfo corresponds to the task for the node, and we create an instance of 
-    ChunkTaskInfo per chunk that handles generating information for the chunk task
-    """
-    def __init__(self, taskInfo, chunk):
-        self.taskInfo: TaskInfo = taskInfo
-        self.chunk: Chunk = chunk
-
-    def cook(self):
-        title = f"{self.taskInfo.name}_{self.chunk.start}_{self.chunk.end}"
-        # Update cmd
-        cmd = f"meshroom_compute {self.taskInfo.taskCommandArgs}"
-        cmd = f"{cmd} --iteration {self.chunk.iteration}"
-        cmd = rezWrapCommand(cmd, otherRezPkg=self.taskInfo.rezPackages)
-        # Update tags
-        chunkTags = self.taskInfo.tags.copy()
-        chunkTags["iteration"] = self.chunk.iteration
-        return {
-            "title": title,
-            "argv": shlex.split(cmd),  # Never None
-            "service": self.taskInfo.service,
-            "metadata": json.dumps(chunkTags),
         }
