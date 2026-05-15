@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 """
-Tractor Subtask Wrapper
-Redirects all normal output to stderr, leaving stdout for Tractor subtask definitions.
+Tractor Expander
+Redirects all normal output to stderr, leaving stdout for Tractor commands.
 
 Usage:
-    python tractorSubtaskWrapper.py createTasks.py arg1 arg2 --option=value
+    python tractorExpander.py script.py arg1 arg2 --option=value
 """
 
 import sys
@@ -35,22 +35,22 @@ class TractorTaskReturnCode:
 
 def main():
     if len(sys.argv) < 2:
-        sys.stderr.write("Usage: tractorSubtaskWrapper.py <script> [args...]\n")
+        sys.stderr.write("Usage: tractorExpander.py <script> [args...]\n")
         sys.exit(1)
 
     command = sys.argv[1:]
     
-    # Save original stdout (for Tractor subtask output)
+    # Save original stdout (for Tractor commands output)
     original_stdout = sys.stdout
 
-    # Create a pipe for capturing subtask output
+    # Create a pipe for capturing commands output
     read_fd, write_fd = os.pipe()
     
-    # Set environment variable so subtaskCreator.py can find the write end
-    os.environ['TRACTOR_SUBTASK_STDOUT_FD'] = str(write_fd)
+    # Set environment variable so the expand script can write on the correct fd
+    os.environ['TRACTOR_STDOUT_FD'] = str(write_fd)
     
     # Log to stderr
-    sys.stderr.write(f"[tractorSubtaskWrapper] Executing: {' '.join(command)}\n")
+    sys.stderr.write(f"[tractorExpander] Executing: {' '.join(command)}\n")
     sys.stderr.flush()
 
     try:
@@ -59,7 +59,7 @@ def main():
         
         # Execute the command with stderr going to stderr, stdout going to stderr too
         # (so print statements go to stderr)
-        # The subtaskCreator will write to write_fd
+        # The expand script will write to write_fd
         process = subprocess.Popen(
             command_string,
             stdout=sys.stderr,  # Normal output goes to stderr
@@ -82,7 +82,7 @@ def main():
         # Wait for subprocess to complete
         returncode = process.wait()
         
-        sys.stderr.write(f"[tractorSubtaskWrapper] Command completed with exit code {returncode}\n")
+        sys.stderr.write(f"[tractorExpander] Command completed with exit code {returncode}\n")
         sys.stderr.flush()
 
         if returncode == TractorTaskReturnCode.ERROR_NO_RETRY:

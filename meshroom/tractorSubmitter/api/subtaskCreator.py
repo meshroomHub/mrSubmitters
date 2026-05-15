@@ -4,7 +4,7 @@
 Helper functions to create subtasks
 
 Provides queueSubtask() to write Tractor subtask definitions to stdout.
-Works with tractorSubtaskWrapper.py to ensure proper stream handling.
+Works with tractorExpander.py to ensure proper stream handling.
 
 Example :
 >>> from tractorSubmitter.api.subtaskCreator import queueSubtask
@@ -38,16 +38,16 @@ def _getCachedSubtaskStdout():
     """
     global _stdout
     if _stdout is None:
-        if 'TRACTOR_SUBTASK_STDOUT_FD' in os.environ:
+        if 'TRACTOR_STDOUT_FD' in os.environ:
             try:
-                fd = int(os.environ['TRACTOR_SUBTASK_STDOUT_FD'])
+                fd = int(os.environ['TRACTOR_STDOUT_FD'])
                 # Open the file descriptor for writing
                 _stdout = os.fdopen(fd, 'w', buffering=1)
             except (ValueError, OSError):
-                raise RuntimeError("(_getCachedSubtaskStdout) Could not open TRACTOR_SUBTASK_STDOUT_FD")
+                raise RuntimeError("(_getCachedSubtaskStdout) Could not open TRACTOR_STDOUT_FD")
             log(f"(_getCachedSubtaskStdout) stdout={_stdout}")
         else:
-            raise FileNotFoundError("(_getCachedSubtaskStdout) Could not find TRACTOR_SUBTASK_STDOUT_FD")
+            raise FileNotFoundError("(_getCachedSubtaskStdout) Could not find TRACTOR_STDOUT_FD")
     return _stdout
 
 

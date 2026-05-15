@@ -281,7 +281,7 @@ class TaskInfo:
         cmd = rezWrapCommand(cmd, otherRezPkg=self.rezPackages)
         # Wrap with tractor wrapper (will redirect stdout to stderr)
         # to make sure stdout only has the
-        wrapperModule = "tractorSubtaskWrapper.py"
+        wrapperModule = "tractorExpander.py"
         wrapperPath = os.path.join(os.environ["MR_SUBMITTERS_SCRITPS"], wrapperModule)
         cmd = f"{sys.executable} {wrapperPath} {cmd}"
         return cmd

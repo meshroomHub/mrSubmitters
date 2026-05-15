@@ -65,7 +65,7 @@ def createJob(tractorAuthor, nb_subtasks, priority=5000):
     )
     
     # Render task
-    cmd = f"tractorSubtaskWrapper testCreateRenderSubtasks {nb_subtasks}" 
+    cmd = f"tractorExpander testCreateRenderSubtasks {nb_subtasks}" 
     cmd = rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True)
     
     tractorCmd = shlex.split(cmd)
