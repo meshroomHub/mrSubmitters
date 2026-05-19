@@ -14,7 +14,7 @@ Some definitions :
 
 We can use one of :
 - `mikrosRender` : Common multithread render blade (most of the farm) 
-- `mikrosScript` : Design blade who are sliced into many small slot, allowing to many mono-threaded task that’s not to heavy in ram usage (there is between 1.5Go-2Go per slot)
+- `mikrosScript` : Design blade who are sliced into many small slot, allowing to many mono-threaded task that's not to heavy in ram usage (there is between 1.5Go-2Go per slot)
 - `gpu` : design reserved ogs and playblast compliant blades 
 - `cp` : tag reserved for review stations, always paired with the hostname of the review machine for local copy on their local SSD drive (commonly 4 slot per blade)
 
@@ -85,10 +85,10 @@ class Level(IntEnum):
 SCRIPT_CONFIGS = "mikrosScript"
 CPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "mikrosRender",
-        "NORMAL": "mikrosRender",
-        "INTENSIVE": "mikrosRender,rnd",
-        "EXTREME": "mikrosRender,rnd,@.nCPU>200"
+        "NONE": "(mikrosRender||millRender)",
+        "NORMAL": "(mikrosRender||millRender)",
+        "INTENSIVE": "(mikrosRender||millRender),rnd",
+        "EXTREME": "(mikrosRender||millRender),rnd,@.nCPU>200"
     },
     "RAM": {
         "NONE": "",
@@ -99,9 +99,9 @@ CPU_CONFIGS = {
 }
 GPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "mikrosRender",
-        "NORMAL": "mikrosRender,cuda8G",
-        "INTENSIVE": "mikrosRender,cuda16G",
+        "NONE": "(mikrosRender||millRender)",
+        "NORMAL": "(mikrosRender||millRender),cuda8G",
+        "INTENSIVE": "(mikrosRender||millRender),cuda16G",
         "EXTREME": "frapcvr6003"
     },
     "RAM": {
