@@ -72,6 +72,7 @@ Expressions can also be encapsulated into `()` if needed.
 """
 
 from enum import IntEnum
+from copy import deepcopy
 
 
 class Level(IntEnum):
@@ -113,12 +114,24 @@ GPU_CONFIGS = {
     }
 }
 
-def get_config(cpu:int, ram:int, gpu:int, excludeHosts:list[str]=None):
-    """ Tries to fetch the adequate config that matches requirements """
+def get_config(cpu:int, ram:int, gpu:int, **kwargs):
+    """Tries to fetch the adequate config that matches requirements
+
+    Keyword Args:
+        cuda_tag (int): cuda tag that we target
+        excludeHosts (list[str]): hosts to exclude
+
+    Returns:
+        str: service key expression
+    """
     if cpu == Level.SCRIPT and gpu<=0:
         return SCRIPT_CONFIGS
     if gpu>0:
-        configType = GPU_CONFIGS
+        gpu_configs = deepcopy(GPU_CONFIGS)
+        if cuda_tag:=kwargs.get("cuda_tag", None):
+            gpu = 1  # Choose "Normal" confi
+            gpu_configs["LEVELS"]["NORMAL"] = f"{GLOBAL_KEY},{cuda_tag}"
+        configType = gpu_configs
         configLevel = gpu
     else:
         configType = CPU_CONFIGS
@@ -127,7 +140,7 @@ def get_config(cpu:int, ram:int, gpu:int, excludeHosts:list[str]=None):
     ramconfig = configType["RAM"][Level(ram).name.upper()]
     if ramconfig:
         config += "," + ramconfig
-    if excludeHosts:
+    if excludeHosts:=kwargs.get("excludeHosts", None):
         config += "," + ",".join([f"!{host}"for host in excludeHosts])
     return config
 
