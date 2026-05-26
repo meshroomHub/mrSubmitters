@@ -82,13 +82,14 @@ class Level(IntEnum):
     SCRIPT=-1
 
 
+GLOBAL_KEY = "(mikrosRender||millRender)"
 SCRIPT_CONFIGS = "mikrosScript"
 CPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "(mikrosRender||millRender)",
-        "NORMAL": "(mikrosRender||millRender)",
-        "INTENSIVE": "(mikrosRender||millRender),rnd",
-        "EXTREME": "(mikrosRender||millRender),rnd,@.nCPU>200"
+        "NONE": f"{GLOBAL_KEY}",
+        "NORMAL": f"{GLOBAL_KEY}",
+        "INTENSIVE": f"{GLOBAL_KEY},rnd",
+        "EXTREME": f"{GLOBAL_KEY},rnd,@.nCPU>200"
     },
     "RAM": {
         "NONE": "",
@@ -99,9 +100,9 @@ CPU_CONFIGS = {
 }
 GPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "(mikrosRender||millRender)",
-        "NORMAL": "(mikrosRender||millRender),cuda8G",
-        "INTENSIVE": "(mikrosRender||millRender),cuda16G",
+        "NONE": f"{GLOBAL_KEY}",
+        "NORMAL": f"{GLOBAL_KEY},cuda8G",
+        "INTENSIVE": f"{GLOBAL_KEY},cuda16G",
         "EXTREME": "frapcvr6003"
     },
     "RAM": {
