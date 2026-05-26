@@ -295,11 +295,16 @@ class TractorSubmitter(BaseSubmitter):
             self.environment["PROD_ROOT"] = os.environ["PROD_ROOT"]
 
     def getTaskService(self, node):
+        kwargs = {
+            "excludeHosts": []
+        }
+        if hasattr(node.nodeDesc, "_cuda_tag"):
+            kwargs["cuda_tag"] = node.nodeDesc._cuda_tag
         service = self.config.get_config(
             cpu=node.cpu.value,
             ram=node.ram.value,
             gpu=node.gpu.value,
-            excludeHosts=[]
+            **kwargs
         )
         return service
 
