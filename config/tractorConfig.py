@@ -3,7 +3,9 @@
 """
 # Tractor config
 
-The config file is used to drive machines where jobs are going to be submitted. The config is used to setup **Service Key Expressions**, which is a field that is setup on the tractor job or task. Tasks inherit the job servicekey expr.
+The config file is used to drive machines where jobs are going to be submitted. 
+The config is used to setup **Service Key Expressions**, which is a field that is setup on the tractor job or task.
+Tasks inherit the job servicekey expr.
 
 Some definitions :
 - *Blade :* a physical machine that is see by tractor and provide Service key  
@@ -80,7 +82,7 @@ class Level(IntEnum):
     NORMAL = 1
     INTENSIVE = 2
     EXTREME = 3
-    SCRIPT=-1
+    SCRIPT = -1
 
 
 GLOBAL_KEY = "(mikrosRender||millRender)"
@@ -114,8 +116,9 @@ GPU_CONFIGS = {
     }
 }
 
-def get_config(cpu:int, ram:int, gpu:int, **kwargs):
-    """Tries to fetch the adequate config that matches requirements
+def get_config(cpu: int, ram: int, gpu: int, **kwargs) -> str:
+    """
+    Tries to fetch the adequate config that matches requirements.
 
     Keyword Args:
         cuda_tag (int): cuda tag that we target
@@ -124,12 +127,12 @@ def get_config(cpu:int, ram:int, gpu:int, **kwargs):
     Returns:
         str: service key expression
     """
-    if cpu == Level.SCRIPT and gpu<=0:
+    if cpu == Level.SCRIPT and gpu <= 0:
         return SCRIPT_CONFIGS
-    if gpu>0:
+    if gpu > 0:
         gpu_configs = deepcopy(GPU_CONFIGS)
-        if cuda_tag:=kwargs.get("cuda_tag", None):
-            gpu = 1  # Choose "Normal" confi
+        if cuda_tag := kwargs.get("cuda_tag", None):
+            gpu = 1  # Choose "Normal" config
             gpu_configs["LEVELS"]["NORMAL"] = f"{GLOBAL_KEY},{cuda_tag}"
         configType = gpu_configs
         configLevel = gpu
@@ -140,8 +143,8 @@ def get_config(cpu:int, ram:int, gpu:int, **kwargs):
     ramconfig = configType["RAM"][Level(ram).name.upper()]
     if ramconfig:
         config += "," + ramconfig
-    if excludeHosts:=kwargs.get("excludeHosts", None):
-        config += "," + ",".join([f"!{host}"for host in excludeHosts])
+    if excludeHosts := kwargs.get("excludeHosts", None):
+        config += "," + ",".join([f"!{host}" for host in excludeHosts])
     return config
 
 
