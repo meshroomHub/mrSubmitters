@@ -3,7 +3,9 @@
 """
 # Tractor config
 
-The config file is used to drive machines where jobs are going to be submitted. The config is used to setup **Service Key Expressions**, which is a field that is setup on the tractor job or task. Tasks inherit the job servicekey expr.
+The config file is used to drive machines where jobs are going to be submitted. 
+The config is used to setup **Service Key Expressions**, which is a field that is setup on the tractor job or task.
+Tasks inherit the job servicekey expr.
 
 Some definitions :
 - *Blade :* a physical machine that is see by tractor and provide Service key  
@@ -72,6 +74,7 @@ Expressions can also be encapsulated into `()` if needed.
 """
 
 from enum import IntEnum
+from copy import deepcopy
 
 
 class Level(IntEnum):
@@ -79,16 +82,17 @@ class Level(IntEnum):
     NORMAL = 1
     INTENSIVE = 2
     EXTREME = 3
-    SCRIPT=-1
+    SCRIPT = -1
 
 
+GLOBAL_KEY = "(mikrosRender||millRender)"
 SCRIPT_CONFIGS = "mikrosScript"
 CPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "(mikrosRender||millRender)",
-        "NORMAL": "(mikrosRender||millRender)",
-        "INTENSIVE": "(mikrosRender||millRender),rnd",
-        "EXTREME": "(mikrosRender||millRender),rnd,@.nCPU>200"
+        "NONE": f"{GLOBAL_KEY}",
+        "NORMAL": f"{GLOBAL_KEY}",
+        "INTENSIVE": f"{GLOBAL_KEY},rnd",
+        "EXTREME": f"{GLOBAL_KEY},rnd,@.nCPU>200"
     },
     "RAM": {
         "NONE": "",
@@ -99,9 +103,9 @@ CPU_CONFIGS = {
 }
 GPU_CONFIGS = {
     "LEVELS": {
-        "NONE": "(mikrosRender||millRender)",
-        "NORMAL": "(mikrosRender||millRender),cuda8G",
-        "INTENSIVE": "(mikrosRender||millRender),cuda16G",
+        "NONE": f"{GLOBAL_KEY}",
+        "NORMAL": f"{GLOBAL_KEY},cuda8G",
+        "INTENSIVE": f"{GLOBAL_KEY},cuda16G",
         "EXTREME": "frapcvr6003"
     },
     "RAM": {
@@ -112,12 +116,25 @@ GPU_CONFIGS = {
     }
 }
 
-def get_config(cpu:int, ram:int, gpu:int, excludeHosts:list[str]=None):
-    """ Tries to fetch the adequate config that matches requirements """
-    if cpu == Level.SCRIPT and gpu<=0:
+def get_config(cpu: int, ram: int, gpu: int, **kwargs) -> str:
+    """
+    Tries to fetch the adequate config that matches requirements.
+
+    Keyword Args:
+        cuda_tag (int): cuda tag that we target
+        excludeHosts (list[str]): hosts to exclude
+
+    Returns:
+        str: service key expression
+    """
+    if cpu == Level.SCRIPT and gpu <= 0:
         return SCRIPT_CONFIGS
-    if gpu>0:
-        configType = GPU_CONFIGS
+    if gpu > 0:
+        gpu_configs = deepcopy(GPU_CONFIGS)
+        if cuda_tag := kwargs.get("cuda_tag", None):
+            gpu = 1  # Choose "Normal" config
+            gpu_configs["LEVELS"]["NORMAL"] = f"{GLOBAL_KEY},{cuda_tag}"
+        configType = gpu_configs
         configLevel = gpu
     else:
         configType = CPU_CONFIGS
@@ -126,8 +143,8 @@ def get_config(cpu:int, ram:int, gpu:int, excludeHosts:list[str]=None):
     ramconfig = configType["RAM"][Level(ram).name.upper()]
     if ramconfig:
         config += "," + ramconfig
-    if excludeHosts:
-        config += "," + ",".join([f"!{host}"for host in excludeHosts])
+    if excludeHosts := kwargs.get("excludeHosts", None):
+        config += "," + ",".join([f"!{host}" for host in excludeHosts])
     return config
 
 
