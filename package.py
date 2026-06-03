@@ -19,6 +19,11 @@ def commands():
     env.PYTHONPATH.append("{root}")
     env.PYTHONPATH.append("{root}/meshroom")
     env.PYTHONPATH.append("{root}/python")
+
+    # Fallback rez version
+    # If no REZ_VERSION is set we will set the job REZ_VERSION as this version
+    env.FARM_REZ_VERSION = "2.104.9"
+
     # Command line nodes
     env.MESHROOM_SUBMITTERS_PATH.append("{root}/meshroom")
     # Set default submitter
