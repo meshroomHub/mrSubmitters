@@ -40,36 +40,48 @@ def wrapMeshroomBin(_bin):
 
 
 class Task:
-    def __init__(self, name, command, uid=None, nodeCache="", tags=None, 
-                 reqPackages=None, service=None, licenses=None, taskType=None):
+    def __init__(self, node, command, defaultName="", nodeCache="", tags=None, 
+                 reqPackages=None, config=None, licenses=None, taskType=None):
         self.taskInfos = TaskInfo(
-            name=name,
+            name=node.name if node else defaultName,
+            node=node,
             cmdArgs=command,
-            nodeUid=uid,
             cacheFolder=nodeCache, 
             reqPackages=reqPackages, 
-            service=service, 
+            config=config, 
             licenses=licenses, 
             taskType=taskType, 
             tags=tags.copy() if tags else None, 
         )
-        taskKwargs = self.taskInfos.cook()
+        # Create task
+        taskKwargs = self.taskInfos.get_kwargs()
+        logging.info(f"Task {self.taskInfos.name} -> kwargs: {taskKwargs}")
+        logging.info(f"Task {self.taskInfos.name} -> envkey: {self.taskInfos.envkey}")
         self.tractorTask: tractorAuthor.Task = tractorAuthor.Task(**taskKwargs)
-        for cmd in self.tractorTask.cmds:
-            cmd.tags = self.taskInfos.limits
-            cmd.envkey = self.taskInfos.envkey
-            cmd.expand = self.taskInfos.expandingTask
-            # If we use a file for expanding task instead we could use this :
-            # if taskInfos.expandingTask:
-            #     cmd.expand = taskInfos.expandingFile
+        # Add commands
+        for i, cmd in enumerate(self.taskInfos.get_commands()):
+            # All attrs:
+            # msg, tags, service, metrics, id, refersto, expand, atleast, atmost, 
+            # minrunsecs, maxrunsecs, samehost, envkey, retryrc, when, resumewhile, 
+            # resumepin, metadata, 
+            logging.info(f"Task {self.taskInfos.name} -> Command {i}: {cmd}")
+            self.tractorTask.newCommand(
+                argv=cmd,
+                service=taskKwargs.get("service"),
+                envkey=self.taskInfos.envkey,
+                tags=self.taskInfos.limits,
+                expand=self.taskInfos.expandingTask,
+                # If we use a file for expanding task instead we could use this :
+                # expand = taskInfos.expandingFile
+            )
 
 
 class Job:
-    def __init__(self, name, tags=None, requirements=None, environment=None, user=None, comment="", paused=False):
+    def __init__(self, name, tags=None, serviceKey=None, environment=None, user=None, comment="", paused=False):
         self.jobInfo = JobInfo(
             name, 
             share="", 
-            service=requirements, 
+            serviceKey=serviceKey, 
             environment=environment, 
             tags=tags, 
             user=user, 
@@ -311,6 +323,22 @@ class TractorSubmitter(BaseSubmitter):
             **kwargs
         )
         return service
+    
+    def getTaskProcessCommands(self, node, iteration):
+        """ process is one of 'preprocess', 'process', 'postprocess' """
+        commands = []
+        settings = node.getSubmitSettings(node).process
+        # Setup
+        if "setup_command" in settings:
+            commands.append(settings.teardown_command)
+        # Process
+        taskCommand = ...  # build from infos on node and iteration
+        if "command_wrapper" in settings:
+            taskCommand = settings.command_wrapper(taskCommand)
+        # Teardown
+        if "teardown_command":
+            commands.append(settings.teardown_command)
+        return commands
 
     def retrieveJob(self, jid) -> TractorJob:
         job = TractorJob(jid, self)
@@ -319,11 +347,11 @@ class TractorSubmitter(BaseSubmitter):
     def createTask(self, meshroomFile: str, orderedTask: OrderedTask, createdTasks: Dict[OrderedTask, Task], **kwargs) -> Task:
         node = orderedTask.node
         if orderedTask.taskType == OrderedTaskType.PLACEHOLDER:
-            defaultName = kwargs.get("jobName", "")
-            defaultName += " (placeholder)"
+            defaultName = kwargs.get("jobName", "") + " (placeholder)"
             return Task(
-                name=orderedTask.node.name if orderedTask.node else defaultName, 
-                command="", 
+                node=node,
+                defaultName=defaultName,
+                command="",
             )
 
         if orderedTask.taskType == OrderedTaskType.CHUNK:
@@ -341,12 +369,11 @@ class TractorSubmitter(BaseSubmitter):
         tags['prod'] = self.prod
         
         taskParams = {
-            "name": node.name,
-            "uid": node._uid,  # Provide unicity info
+            "node": node,
             "nodeCache": node._internalFolder,
             "tags": tags,
             "reqPackages": self.reqPackages,
-            "service": self.getTaskService(node),
+            "config": self.config,
             "licenses": node.nodeDesc._licenses,
             "taskType": taskType
         }
@@ -414,12 +441,12 @@ class TractorSubmitter(BaseSubmitter):
         # Environment
         environment = environment or {}
         # Command
-        cmdArgs = f"meshroom_compute --node {node.name} \"{graphFile}\" --extern"
+        taskCommand = f"meshroom_compute --node {node.name} \"{graphFile}\" --extern"
         # Add task to the queue
         queueChunkTask(
             node=node,
-            cmdArgs=cmdArgs,
-            service=self.getTaskService(node),
+            taskCommand=taskCommand,
+            config=self.config,
             tags=taskTags,
             reqPackages=self.reqPackages,
             environment=environment
