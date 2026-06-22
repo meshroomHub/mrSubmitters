@@ -9,8 +9,8 @@ from typing import Dict, List, Union
 
 # ========== Tractor ==========
 from tractor.api import author as tractorAuthor
+from tractorSubmitter.rezUtils import getRequestPackages
 from tractorSubmitter.api.base import (
-    getRequestPackages,
     TaskInfo, JobInfo,
     TRACTOR_JOB_URL, PRIORITY_DICT
 )
