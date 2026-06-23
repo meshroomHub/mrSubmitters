@@ -323,22 +323,6 @@ class TractorSubmitter(BaseSubmitter):
             **kwargs
         )
         return service
-    
-    def getTaskProcessCommands(self, node, iteration):
-        """ process is one of 'preprocess', 'process', 'postprocess' """
-        commands = []
-        settings = node.getSubmitSettings(node).process
-        # Setup
-        if "setup_command" in settings:
-            commands.append(settings.teardown_command)
-        # Process
-        taskCommand = ...  # build from infos on node and iteration
-        if "command_wrapper" in settings:
-            taskCommand = settings.command_wrapper(taskCommand)
-        # Teardown
-        if "teardown_command":
-            commands.append(settings.teardown_command)
-        return commands
 
     def retrieveJob(self, jid) -> TractorJob:
         job = TractorJob(jid, self)
