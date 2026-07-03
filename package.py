@@ -1,6 +1,6 @@
 name = "mrSubmitters"
 
-version = "1.2.1"
+version = "1.2.2"
 
 plugin_for = ["meshroom"]
 
@@ -20,8 +20,7 @@ def commands():
     env.PYTHONPATH.append("{root}/meshroom")
     env.PYTHONPATH.append("{root}/python")
 
-    # Fallback rez version
-    # If no REZ_VERSION is set we will set the job REZ_VERSION as this version
+    # Set rez version used on jobs
     env.FARM_REZ_VERSION = "2.114.1"
 
     # Command line nodes
