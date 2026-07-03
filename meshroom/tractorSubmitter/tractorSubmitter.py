@@ -293,10 +293,10 @@ class TractorSubmitter(BaseSubmitter):
             self.environment["PROD"] = os.environ["PROD"]
         if "PROD_ROOT" in os.environ:
             self.environment["PROD_ROOT"] = os.environ["PROD_ROOT"]
-        if "REZ_VERSION" in os.environ:
-            self.environment["REZ_VERSION"] = os.environ["REZ_VERSION"]
-        elif "FARM_REZ_VERSION" in os.environ:
+        if "FARM_REZ_VERSION" in os.environ:
             self.environment["REZ_VERSION"] = os.environ["FARM_REZ_VERSION"]
+        elif "REZ_VERSION" in os.environ:
+            self.environment["REZ_VERSION"] = os.environ["REZ_VERSION"]
 
     def getTaskService(self, node):
         kwargs = {
