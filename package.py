@@ -22,7 +22,7 @@ def commands():
 
     # Fallback rez version
     # If no REZ_VERSION is set we will set the job REZ_VERSION as this version
-    env.FARM_REZ_VERSION = "2.104.9"
+    env.FARM_REZ_VERSION = "2.114.1"
 
     # Command line nodes
     env.MESHROOM_SUBMITTERS_PATH.append("{root}/meshroom")
