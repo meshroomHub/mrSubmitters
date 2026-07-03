@@ -1,5 +1,7 @@
 # Gitignore
 
+archive/
+
 # Python
 *.py[codz]
 __pycache__/
