@@ -14,6 +14,11 @@ private_build_requires = ["cmake-3"]
 with scope("config") as config:
     # Specify the path where the package will be install with the command rez release
     config.release_packages_path = "/s/apps/packages/mikrosVfx/multiview"
+    config.plugins = {
+        "release_vcs": {
+            "tag_name": version
+        }
+    }
 
 def commands():
     env.PYTHONPATH.append("{root}")
