@@ -100,6 +100,20 @@ def sendTractorCmd(task_def):
     tractor_stdout.flush()
 
 
+def _quote_cmd_arg(arg):
+    """Quote argv entries for Tractor's RemoteCmd list only when needed.
+
+    The expander path expects the historical manually-built `Task -title ...`
+    format. The only broken case is whitespace inside one argv entry, so keep
+    the old shape and wrap just that argument in TCL braces.
+    """
+    if any(c in arg for c in (" ", "\t", "\n")):
+        if "{" not in arg and "}" not in arg:
+            return "{" + arg + "}"
+        return arg.replace("\\", "\\\\").replace(" ", "\\ ")
+    return arg
+
+
 def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=None):
     """
     Queue a subtask to be created in Tractor.
@@ -130,7 +144,7 @@ def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=Non
     else:
         cmd_argv = list(argv)
 
-    cmd_str = " ".join(cmd_argv)
+    cmd_str = " ".join(_quote_cmd_arg(arg) for arg in cmd_argv)
 
     # Build tags string
     tags_str = ""
