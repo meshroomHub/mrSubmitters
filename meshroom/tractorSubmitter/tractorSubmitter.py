@@ -285,14 +285,17 @@ class TractorSubmitter(BaseSubmitter):
         self.share = os.environ.get("MESHROOM_TRACTOR_SHARE", "vfx")
         self.prod = os.environ.get("PROD", "mvg")
         self.reqPackages = getRequestPackages()
-        if "REZ_DEV_PACKAGES_ROOT" in os.environ:
-            self.environment["REZ_DEV_PACKAGES_ROOT"] = os.environ["REZ_DEV_PACKAGES_ROOT"]
-        if "REZ_PROD_PACKAGES_PATH" in os.environ:
-            self.environment["REZ_PROD_PACKAGES_PATH"] = os.environ["REZ_PROD_PACKAGES_PATH"]
-        if "PROD" in os.environ:
-            self.environment["PROD"] = os.environ["PROD"]
-        if "PROD_ROOT" in os.environ:
-            self.environment["PROD_ROOT"] = os.environ["PROD_ROOT"]
+
+        for env_var in (
+            "REZ_LOCAL_PACKAGES_PATH",
+            "REZ_DEV_PACKAGES_ROOT",  #TODO: specific env var, to be removed eventually
+            "REZ_PROD_PACKAGES_PATH", #TODO: specific env var, to be removed eventually
+            "PROD",
+            "PROD_ROOT",
+        ):
+            if env_var in os.environ:
+                self.environment[env_var] = os.environ[env_var]
+
         if "FARM_REZ_VERSION" in os.environ:
             self.environment["REZ_VERSION"] = os.environ["FARM_REZ_VERSION"]
         elif "REZ_VERSION" in os.environ:
