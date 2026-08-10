@@ -3,8 +3,9 @@
 """
 Helper functions to create subtasks
 
-Provides queueSubtask() to write Tractor subtask definitions to stdout.
-Works with tractorExpander.py to ensure proper stream handling.
+Provides queueSubtask() to write Tractor subtask definitions to the file
+standing in for Tractor's stdout, which tractorExpander.py forwards to the
+real stdout to ensure proper stream handling.
 
 Example :
 >>> from tractorSubmitter.api.subtaskCreator import queueSubtask
@@ -20,11 +21,17 @@ import shlex
 from tractorSubmitter.api.base import TaskInfo
 
 
-# Original stdout file descriptor
-# Cached to avoid reopening file descriptor multiple times
-EXPAND_MODE = "stdout"  # Or "file"
+# Env var set by tractorExpander.py, holding the path of the file standing in
+# for Tractor's stdout: everything written there, and nothing else, ends up on
+# the real stdout Tractor parses to expand the task.
+STDOUT_FILE_VAR = "TRACTOR_STDOUT_FILE"
+# Legacy channel: a pipe file descriptor inherited from tractorExpander.py.
+# Unreliable, since any intermediate process spawning with close_fds=True
+# (`rez env` does, on python3) closes it, hence the file based channel above.
+STDOUT_FD_VAR = "TRACTOR_STDOUT_FD"
+
+# Output stream, cached to avoid reopening it on every subtask
 _stdout = None
-_expandTaskFile = None
 
 
 def log(*text):
@@ -32,54 +39,65 @@ def log(*text):
     sys.stderr.write(text + "\n")
 
 
+def _openStdoutFile():
+    """
+    Open the file tractorExpander.py reads the task definitions from,
+    or return None if no such file is declared in the environment
+    """
+    path = os.environ.get(STDOUT_FILE_VAR)
+    if not path:
+        return None
+    stream = open(path, 'a', buffering=1)
+    log(f"(_getCachedSubtaskStdout) using {STDOUT_FILE_VAR}={path}")
+    return stream
+
+
+def _openStdoutFd():
+    """
+    Open the legacy pipe file descriptor inherited from tractorExpander.py,
+    or return None if it is not declared or no longer usable.
+
+    The descriptor is checked with os.fstat first : it does not survive
+    processes spawning with close_fds=True (`rez env` does), and reusing a
+    stale number would write into whatever file took its place
+    """
+    raw = os.environ.get(STDOUT_FD_VAR)
+    if not raw:
+        return None
+    try:
+        fd = int(raw)
+        os.fstat(fd)  # Raises OSError(EBADF) if the fd did not survive
+        stream = os.fdopen(fd, 'w', buffering=1)
+    except (ValueError, OSError) as err:
+        log(f"(_getCachedSubtaskStdout) unusable {STDOUT_FD_VAR}={raw}: {err}")
+        return None
+    log(f"(_getCachedSubtaskStdout) using {STDOUT_FD_VAR}={fd}")
+    return stream
+
+
 def _getCachedSubtaskStdout():
     """
-    Get cached subtask stdout
+    Get cached subtask stdout, the stdout file being preferred over the
+    legacy inherited file descriptor
     """
     global _stdout
     if _stdout is None:
-        if 'TRACTOR_STDOUT_FD' in os.environ:
-            try:
-                fd = int(os.environ['TRACTOR_STDOUT_FD'])
-                # Open the file descriptor for writing
-                _stdout = os.fdopen(fd, 'w', buffering=1)
-            except (ValueError, OSError):
-                raise RuntimeError("(_getCachedSubtaskStdout) Could not open TRACTOR_STDOUT_FD")
-            log(f"(_getCachedSubtaskStdout) stdout={_stdout}")
-        else:
-            raise FileNotFoundError("(_getCachedSubtaskStdout) Could not find TRACTOR_STDOUT_FD")
+        _stdout = _openStdoutFile() or _openStdoutFd()
+        if _stdout is None:
+            raise RuntimeError(
+                "(_getCachedSubtaskStdout) No usable Tractor stdout channel: "
+                f"neither {STDOUT_FILE_VAR} nor {STDOUT_FD_VAR} is set to "
+                "something writable. The command must be launched through "
+                "tractorExpander.py."
+            )
     return _stdout
-
-
-def _getCachedTaskFile():
-    """
-    Not used ! It would be a better alternative but since we cannot
-    pass a string to cmd.expand (although it should be possible since tractor 1.7)
-    we cannot use this
-    """
-    global _expandTaskFile
-    if _expandTaskFile is None:
-        if 'EXPAND_FILE' in os.environ:
-            try:
-                _expandTaskFile = os.environ['EXPAND_FILE']
-            except (ValueError, OSError):
-                raise RuntimeError("(_getCachedTaskFile) Could not open EXPAND_FILE")
-            log(f"(_getCachedTaskFile) expand file: {_expandTaskFile}")
-        else:
-            raise FileNotFoundError("(_getCachedTaskFile) Could not find EXPAND_FILE")
-    return _expandTaskFile
 
 
 def sendTractorCmd(task_def):
     """ Write the tractor command to the stdout """
-    if EXPAND_MODE == "stdout":
-        tractor_stdout = _getCachedSubtaskStdout()
-        tractor_stdout.write(task_def)
-        tractor_stdout.flush()
-    elif EXPAND_MODE == "file":
-        expandFile = _getCachedTaskFile()
-        with open(expandFile, "a+") as f:
-            f.write("\n" + task_def + "\n")
+    tractor_stdout = _getCachedSubtaskStdout()
+    tractor_stdout.write(task_def)
+    tractor_stdout.flush()
 
 
 def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=None):
@@ -121,8 +139,8 @@ def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=Non
 
     # Build metadata string
     if isinstance(metadata, dict):
-        metadata = json.dumps(metadata)
-    metadata_str = f"-metadata {{{metadata}}}"
+        metadata = json.dumps(metadata) if metadata else ""
+    metadata_str = f"-metadata {{{metadata}}}" if metadata else ""
 
     # Build envkey string
     envkey_str = ""
