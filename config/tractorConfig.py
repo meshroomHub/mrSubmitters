@@ -92,7 +92,7 @@ CPU_CONFIGS = {
         "NONE": f"{GLOBAL_KEY}",
         "NORMAL": f"{GLOBAL_KEY}",
         "INTENSIVE": f"{GLOBAL_KEY},rnd",
-        "EXTREME": f"{GLOBAL_KEY},rnd,@.nCPU>200"
+        "EXTREME": f"{GLOBAL_KEY},rnd,@.nCPUs>200"
     },
     "RAM": {
         "NONE": "",
