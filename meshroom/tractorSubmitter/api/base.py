@@ -48,8 +48,10 @@ def createTmpFolder(create=False):
 
 
 def getResolvedVersionsDict():
-    """ Get a dict {packageName: version} corresponding to the current context """
-    resolvedPackages = os.environ.get('REZ_RESOLVE', '').split()
+    """ Get a dict {packageName: version} corresponding to the current context. """
+
+    resolvedPackages = os.environ.get('REZ_USED_RESOLVE', '').split()
+    print(resolvedPackages)
     resolvedVersions = {}
     for r in resolvedPackages:
         if r.startswith('~'):  # remove implicit packages
@@ -71,7 +73,7 @@ def getRequestPackages(packagesDelimiter="=="):
     in the job that the one we have in the env where meshroom is launched
     """
     reqPackages = set()
-    if 'REZ_REQUEST' in os.environ:
+    if 'REZ_USED_REQUEST' in os.environ:
         # Get the names of the packages that have been requested
         requestedPackages = os.environ.get('REZ_USED_REQUEST', '').split()
         usedPackages = set()  # Use set to remove duplicates
@@ -105,7 +107,7 @@ def rezWrapCommand(cmd, useCurrentContext=False, useRequestedContext=True,
     packages = set()
     if useCurrentContext:
         # In this case we want to use the full context
-        packages.update([p for p in os.environ.get('REZ_RESOLVE', '').split(" ") if p])
+        packages.update([p for p in os.environ.get('REZ_USED_RESOLVE', '').split(" ") if p])
     elif useRequestedContext:
         # In this case we want to use only packages in the rez request
         packages.update(getRequestPackages())
