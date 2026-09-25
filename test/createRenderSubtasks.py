@@ -50,7 +50,7 @@ def main(nb_subtasks):
     name = "[Tractor test](Subtask)Render"
     user = os.environ.get('FARM_USER', os.environ.get('USER', getpass.getuser()))
     limits = ["blender"]
-    service = "mikrosRender"
+    service = "millRender"
     
     # Create subtasks
     for index in range(nb_subtasks):

@@ -132,7 +132,7 @@ def queueSubtask(title, argv, service="", limits=None, metadata=None, envkey=Non
         queueSubtask(
             title="render_frame_0001",
             cmd="render --frame 1 scene.ma",
-            service="mikrosRender",
+            service="millRender",
             limits=["blender"],
             metadata={'user': 'john', 'iteration': '1', 'prod': 'mvg'}
         )

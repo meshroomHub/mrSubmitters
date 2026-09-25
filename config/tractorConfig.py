@@ -85,8 +85,8 @@ class Level(IntEnum):
     SCRIPT = -1
 
 
-GLOBAL_KEY = "(mikrosRender||millRender)"
-SCRIPT_CONFIGS = "mikrosScript"
+GLOBAL_KEY = "millRender"
+SCRIPT_CONFIGS = "millScript"
 CPU_CONFIGS = {
     "LEVELS": {
         "NONE": f"{GLOBAL_KEY}",

@@ -31,7 +31,7 @@ def createJob(tractorAuthor, nb_subtasks, priority=5000):
     The goal of this task is to spool additional tasks
     """
     mainTags = {'prod': "mvg", 'nbFrames': "5", 'comment': "test job"}
-    allRequirements = ["mikrosRender"]
+    allRequirements = ["millRender"]
     projects = ["vfx"]
     
     # Create job
