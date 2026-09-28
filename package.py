@@ -1,6 +1,6 @@
 name = "mrSubmitters"
 
-version = "1.3.1"
+version = "1.3.2"
 
 plugin_for = ["meshroom"]
 
