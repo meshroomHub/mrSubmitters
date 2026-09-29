@@ -51,7 +51,6 @@ def getResolvedVersionsDict():
     """ Get a dict {packageName: version} corresponding to the current context. """
 
     resolvedPackages = os.environ.get('REZ_USED_RESOLVE', '').split()
-    print(resolvedPackages)
     resolvedVersions = {}
     for r in resolvedPackages:
         if r.startswith('~'):  # remove implicit packages
