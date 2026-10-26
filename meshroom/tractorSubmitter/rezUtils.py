@@ -12,7 +12,8 @@ REZ_DELIMITER_PATTERN = re.compile(r"(-|==|>=|>|<=|<)")
 
 def getResolvedVersionsDict():
     """ Get a dict {packageName: version} corresponding to the current context """
-    resolvedPackages = os.environ.get('REZ_RESOLVE', '').split()
+    resolvedPackages = os.environ.get('REZ_USED_RESOLVE', '').split()
+    print(resolvedPackages)
     resolvedVersions = {}
     for r in resolvedPackages:
         if r.startswith('~'):  # remove implicit packages
@@ -34,7 +35,7 @@ def getRequestPackages(packagesDelimiter="=="):
     in the job that the one we have in the env where meshroom is launched
     """
     reqPackages = set()
-    if 'REZ_REQUEST' in os.environ:
+    if 'REZ_USED_REQUEST' in os.environ:
         # Get the names of the packages that have been requested
         requestedPackages = os.environ.get('REZ_USED_REQUEST', '').split()
         usedPackages = set()  # Use set to remove duplicates
