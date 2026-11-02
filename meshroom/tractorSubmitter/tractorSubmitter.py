@@ -131,13 +131,15 @@ class Job:
         # Create job
         tractorJob = tractorAuthor.Job(**self.jobInfo.cook())
         self.cook(tractorJob)
-        tractorJob.priority = PRIORITY_DICT.get(priority, PRIORITY_DICT["normal"])
+        
+        tractorJob.priority = priority or PRIORITY_DICT["normal"]
 
         if dryRun:
             logging.info("TractorSubmitter: Job in TCL format")
             logging.info(tractorJob.asTcl())
             return {}
         else:
+            logging.info(f"Spooling job with priority {priority}")
             jid = tractorJob.spool(block=block, owner=self.jobInfo.user)
             return {"id": jid, "url": TRACTOR_JOB_URL.format(jid=jid)}
 
@@ -284,6 +286,7 @@ class TractorSubmitter(BaseSubmitter):
         self.share = os.environ.get("MESHROOM_TRACTOR_SHARE", "vfx")
         self.prod = os.environ.get("PROD", "mvg")
         self.reqPackages = getRequestPackages()
+        self.jobPriority: str = os.environ.get("MESHROOM_JOB_PRIORITY", "normal")
 
         for env_var in (
             "REZ_LOCAL_PACKAGES_PATH",
@@ -377,8 +380,19 @@ class TractorSubmitter(BaseSubmitter):
             deps = [createdTasks.get(t) for t in orderedTask.dependencies]
             for dependency in deps:
                 job.addTaskDependency(task, dependency)
-                
-        res = job.submit(share=self.share, dryRun=self.dryRun)
+
+        # Find priority
+        priority = None
+        if isinstance(self.jobPriority, str):
+            if self.jobPriority.isdigit():
+                priority = int(self.jobPriority)
+            else:
+                priority = PRIORITY_DICT.get(self.jobPriority)
+        if not isinstance(priority, int):
+            # Protect against bad values
+            priority = None
+
+        res = job.submit(priority=priority, share=self.share, dryRun=self.dryRun)
         if self.dryRun:
             return True
         if len(res) == 0:
