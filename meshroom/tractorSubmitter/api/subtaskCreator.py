@@ -185,8 +185,8 @@ def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environm
     for iteration in range(nbBlocks):
         taskInfo = TaskInfo(
             name=node.name, 
+            node=node,
             cmdArgs=cmdArgs,
-            nodeUid=node._uid,
             environment=environment,
             reqPackages=reqPackages,
             service=service,

@@ -5,7 +5,7 @@ import sys
 import shutil
 import getpass
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 # ========== Tractor ==========
 from tractor.api import author as tractorAuthor
@@ -40,12 +40,12 @@ def wrapMeshroomBin(_bin):
 
 
 class Task:
-    def __init__(self, name, command, uid=None, nodeCache="", tags=None, 
-                 reqPackages=None, service=None, licenses=None, taskType=None):
+    def __init__(self, node, command, defaultName="", nodeCache="", tags=None, 
+                 reqPackages=None, service=None, taskType=None):
         self.taskInfos = TaskInfo(
-            name=name,
+            name=node.name if node else defaultName,
+            node=node,
             cmdArgs=command,
-            nodeUid=uid,
             cacheFolder=nodeCache, 
             reqPackages=reqPackages, 
             service=service, 
@@ -124,7 +124,7 @@ class Job:
             tractorJob.addChild(tractorTask)
             taskToTractorTask[task] = tractorTask
 
-    def submit(self, priority="normal", share="", dryRun=False, block=False):
+    def submit(self, priority: Optional[int] = None, share: str = "", dryRun: bool = False, block: bool = False):
         """Submit to Tractor, or print TCL if dryRun."""
         if share:
             self.jobInfo.share = share
@@ -322,12 +322,8 @@ class TractorSubmitter(BaseSubmitter):
     def createTask(self, meshroomFile: str, orderedTask: OrderedTask, createdTasks: Dict[OrderedTask, Task], **kwargs) -> Task:
         node = orderedTask.node
         if orderedTask.taskType == OrderedTaskType.PLACEHOLDER:
-            defaultName = kwargs.get("jobName", "")
-            defaultName += " (placeholder)"
-            return Task(
-                name=orderedTask.node.name if orderedTask.node else defaultName, 
-                command="", 
-            )
+            defaultName = kwargs.get("jobName", "") + " (placeholder)"
+            return Task(node=orderedTask.node, command="", defaultName=defaultName)
 
         if orderedTask.taskType == OrderedTaskType.CHUNK:
             taskType = ("chunk", orderedTask.iteration)
@@ -344,8 +340,7 @@ class TractorSubmitter(BaseSubmitter):
         tags['prod'] = self.prod
         
         taskParams = {
-            "name": node.name,
-            "uid": node._uid,  # Provide unicity info
+            "node": node,
             "nodeCache": node._internalFolder,
             "tags": tags,
             "reqPackages": self.reqPackages,

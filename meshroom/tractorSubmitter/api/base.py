@@ -20,8 +20,11 @@ import shlex
 import shutil
 from collections import namedtuple
 import tempfile
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from types import ModuleType
+    from meshroom.core.node import BaseNode
 
 TRACTOR_JOB_URL = "http://tractor-engine/tv/#jid={jid}"
 Chunk = namedtuple("chunk", ["iteration", "start", "end"])
@@ -207,13 +210,12 @@ class JobInfo:
 class TaskInfo:
     def __init__(self, 
                  name: str, 
+                 node: "BaseNode",
                  cmdArgs: str, 
-                 nodeUid: str, 
                  cacheFolder: str="",
                  environment: dict=None, 
                  reqPackages: list=None, 
-                 service: str=None, 
-                 licenses=None, 
+                 config: "ModuleType" = None,
                  taskType:Optional[Tuple]=None, 
                  tags=None):
         """Object to gather, manipulate, generate task infos
@@ -221,8 +223,8 @@ class TaskInfo:
         Args:
             name: name of the task (usually the node name). 
                   For the final title we add the task type (chunk index)
+            node: Node
             cmdArgs: Command to execute
-            nodeUid: Node UID
             cacheFolder: Folder containing the node cache.
             environment: Environment to set. Dict with key:value.
             reqPackages: List of requested packages.
@@ -255,9 +257,8 @@ class TaskInfo:
 
         self.iteration = iteration_
 
-    @staticmethod
-    def getLimits(licenses=None):
-        licenses = [] if licenses is None else licenses
+        # Save the node
+        self.node = node
         taskLimits = [LICENSES_MAP.get(license, license) for license in licenses]
         if 'DEFAULT_TRACTOR_LIMIT' in os.environ:
             taskLimits.append(os.environ['DEFAULT_TRACTOR_LIMIT'])
