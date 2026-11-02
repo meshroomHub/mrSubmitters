@@ -41,15 +41,14 @@ def wrapMeshroomBin(_bin):
 
 class Task:
     def __init__(self, node, command, defaultName="", nodeCache="", tags=None, 
-                 reqPackages=None, service=None, taskType=None):
+                 reqPackages=None, config=None, taskType=None):
         self.taskInfos = TaskInfo(
             name=node.name if node else defaultName,
             node=node,
             cmdArgs=command,
             cacheFolder=nodeCache, 
             reqPackages=reqPackages, 
-            service=service, 
-            licenses=licenses, 
+            config=config, 
             taskType=taskType, 
             tags=tags.copy() if tags else None, 
         )
@@ -65,11 +64,11 @@ class Task:
 
 
 class Job:
-    def __init__(self, name, tags=None, requirements=None, environment=None, user=None, comment="", paused=False):
+    def __init__(self, name, tags=None, serviceKey=None, environment=None, user=None, comment="", paused=False):
         self.jobInfo = JobInfo(
             name, 
             share="", 
-            service=requirements, 
+            serviceKey=serviceKey, 
             environment=environment, 
             tags=tags, 
             user=user, 
@@ -301,20 +300,6 @@ class TractorSubmitter(BaseSubmitter):
         elif "REZ_VERSION" in os.environ:
             self.environment["REZ_VERSION"] = os.environ["REZ_VERSION"]
 
-    def getTaskService(self, node):
-        kwargs = {
-            "excludeHosts": []
-        }
-        if hasattr(node.nodeDesc, "_cuda_tag"):
-            kwargs["cuda_tag"] = node.nodeDesc._cuda_tag
-        service = self.config.get_config(
-            cpu=node.cpu.value,
-            ram=node.ram.value,
-            gpu=node.gpu.value,
-            **kwargs
-        )
-        return service
-
     def retrieveJob(self, jid) -> TractorJob:
         job = TractorJob(jid, self)
         return job
@@ -344,8 +329,7 @@ class TractorSubmitter(BaseSubmitter):
             "nodeCache": node._internalFolder,
             "tags": tags,
             "reqPackages": self.reqPackages,
-            "service": self.getTaskService(node),
-            "licenses": node.nodeDesc._licenses,
+            "config": self.config,
             "taskType": taskType
         }
 
@@ -417,7 +401,7 @@ class TractorSubmitter(BaseSubmitter):
         queueChunkTask(
             node=node,
             cmdArgs=cmdArgs,
-            service=self.getTaskService(node),
+            config=self.config,
             tags=taskTags,
             reqPackages=self.reqPackages,
             environment=environment

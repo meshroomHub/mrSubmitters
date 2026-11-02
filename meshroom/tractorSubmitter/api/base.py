@@ -18,6 +18,7 @@ import getpass
 import logging
 import shlex
 import shutil
+import copy
 from collections import namedtuple
 import tempfile
 from typing import Optional, Tuple, TYPE_CHECKING
@@ -167,12 +168,11 @@ def toTractorEnv(environment):
 #
 
 class JobInfo:
-    def __init__(self, name, share=None, service=None, environment=None, tags=None, user=None,
+    def __init__(self, name, share=None, serviceKey=None, environment=None, tags=None, user=None,
                  comment="", paused=False):
         self.name = name
         self.share = self.getShare(share)
-        self.requirements = service or {}
-        self.service = service or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
+        self.serviceKey = serviceKey or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
         self.tags = tags or {}
         self.paused = paused
         self.comment = comment
@@ -197,7 +197,7 @@ class JobInfo:
         env = self.environment.copy()
         return {
             "title": self.name,
-            "service": self.service,
+            "service": self.serviceKey,
             "metadata": json.dumps(tags),
             "envkey": toTractorEnv(env),
             "paused": self.paused,
@@ -228,41 +228,94 @@ class TaskInfo:
             cacheFolder: Folder containing the node cache.
             environment: Environment to set. Dict with key:value.
             reqPackages: List of requested packages.
-            service: Service key expression (used for machine targeting).
-            licenses: Eequired licenses.
+            config: Tractor configuration module.
             taskType: Task type and iteration if needed. Tuple[task type, iteration]
             tags: Additional metadata to set on the task.
         """
-        self.name = name
-        self.uid = nodeUid
-        self.taskCommandArgs = cmdArgs
-        # Env
-        self.environment = environment or {}
-        # Requested packages
-        self.reqPackages = reqPackages or []
-        # self.limits
-        self.service = service or os.environ.get("DEFAULT_TRACTOR_SERVICE", "")
-        self.limits = self.getLimits(licenses)
-        # Tags
-        self.tags = tags or {}
-        self.tags["nodeUid"] = nodeUid
-
-        # Expanding / Chunks
+        # Check task type : placeholder, expanding, stage, etc
         taskType_, iteration_ = taskType or ("placeholder", None)
         self.placeholderTask = (taskType_ == "placeholder")
         self.expandingTask = (taskType_ == "expanding")
         self.preprocessTask = (taskType_ == "preprocess")
         self.postprocessTask = (taskType_ == "postprocess")
         self.chunkTask = (taskType_ == "chunk")  
-
         self.iteration = iteration_
 
         # Save the node
         self.node = node
+        # Submitter settings - needed for getLimits
+        self.taskSubmitterSettings = self._getTaskSubmissionSettings()
+        
+        # Fill other info
+        self.name = name
+        self.taskCommandArgs = cmdArgs
+        self.config = config
+        # Env
+        self.environment = environment or {}
+        # Requested packages
+        self.reqPackages = reqPackages or []
+        # Limits (rez, licenses, ...)
+        self.limits = self.getLimits()
+        # Tags
+        self.tags = self.getTags(tags)
+
+    def _getTaskSubmissionSettings(self):
+        if self.placeholderTask:
+            return None
+        nodeSubmitSettings = self.node.nodeDesc.getSubmissionSettings(self.node)
+        if self.preprocessTask:
+            return nodeSubmitSettings.preprocess
+        elif self.postprocessTask:
+            return nodeSubmitSettings.postprocess
+        else:
+            return nodeSubmitSettings.process
+
+    def getLimits(self):
+        licenses = []
+        if self.taskSubmitterSettings and "licenses" in self.taskSubmitterSettings:
+            licenses = self.taskSubmitterSettings.licenses
         taskLimits = [LICENSES_MAP.get(license, license) for license in licenses]
         if 'DEFAULT_TRACTOR_LIMIT' in os.environ:
             taskLimits.append(os.environ['DEFAULT_TRACTOR_LIMIT'])
         return taskLimits
+
+    def getTags(self, tags=None):
+        tags = tags or {}
+        if self.taskSubmitterSettings and "tags" in self.taskSubmitterSettings:
+            tags.update(self.taskSubmitterSettings.tags)
+        if self.node:
+            tags["nodeUid"] = self.node._uid
+        return tags
+
+    @property
+    def service(self):
+        """ Get the service key for the task """
+        if self.placeholderTask:
+            return ""
+        if self.expandingTask:
+            return self.config.GLOBAL_KEY
+        # Get submitter settings
+        settings = self.taskSubmitterSettings
+        if not settings:
+            return ""  # Only for placeholder, should be handled before
+        # If an explicit service key is set use it
+        if "service_key" in settings:
+            return settings.service_key
+        # Else try to build from the config file
+        kwargs = {}
+        if "cuda_tag" in settings:
+            kwargs["cuda_tag"] = settings.cuda_tag
+        if "excluded_hosts" in settings:
+            hosts = settings.excluded_hosts
+            hosts = list(hosts) if isinstance(hosts, (list, tuple)) else [hosts]
+            kwargs["excluded_hosts"] = hosts
+        service = self.config.get_config(
+            cpu=settings.cpu,
+            ram=settings.ram,
+            gpu=settings.gpu,
+            **kwargs
+        )
+        return service
 
     def _setExpandingTaskFile(self, cacheFolder):
         """ Doesn't work with current python API ! 
@@ -285,7 +338,10 @@ class TaskInfo:
 
     @property
     def envkey(self):
-        return toTractorEnv(self.environment)
+        env = copy.deepcopy(self.environment)
+        if self.taskSubmitterSettings and "env" in self.taskSubmitterSettings:
+            env.update(self.taskSubmitterSettings.env)
+        return toTractorEnv(env)
 
     def cook(self):
         title = f"{self.name}"

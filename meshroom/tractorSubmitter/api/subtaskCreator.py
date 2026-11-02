@@ -176,11 +176,10 @@ Task -title {{{title}}} {service_str} {metadata_str} -cmds {{
     log(f"Queued subtask: {title}")
 
 
-def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environment=None):
+def queueChunkTask(node, cmdArgs, config, tags=None, reqPackages=None, environment=None):
     blockSize, fullSize, nbBlocks = node.nodeDesc.parallelization.getSizes(node)
     if nbBlocks <= 0:
         return
-    licenses = node.nodeDesc._licenses
     
     for iteration in range(nbBlocks):
         taskInfo = TaskInfo(
@@ -189,8 +188,7 @@ def queueChunkTask(node, cmdArgs, service, tags=None, reqPackages=None, environm
             cmdArgs=cmdArgs,
             environment=environment,
             reqPackages=reqPackages,
-            service=service,
-            licenses=licenses,
+            config=config,
             taskType=("chunk", iteration),
             tags=tags.copy() if tags else None,
         )
