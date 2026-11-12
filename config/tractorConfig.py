@@ -120,7 +120,7 @@ def get_config(cpu: int, ram: int, gpu: int, **kwargs) -> str:
 
     Keyword Args:
         cuda_tag (int): cuda tag that we target
-        excludeHosts (list[str]): hosts to exclude
+        excluded_hosts (list[str]): hosts to exclude
 
     Returns:
         str: service key expression
@@ -141,8 +141,8 @@ def get_config(cpu: int, ram: int, gpu: int, **kwargs) -> str:
     ramconfig = configType["RAM"][Level(ram).name.upper()]
     if ramconfig:
         config += "," + ramconfig
-    if excludeHosts := kwargs.get("excludeHosts", None):
-        config += "," + ",".join([f"!{host}" for host in excludeHosts])
+    if excludedHosts := kwargs.get("excluded_hosts", None):
+        config += "," + ",".join([f"!{host}" for host in excludedHosts])
     return config
 
 
