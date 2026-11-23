@@ -5,7 +5,7 @@ import sys
 import shutil
 import getpass
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 # ========== Tractor ==========
 from tractor.api import author as tractorAuthor
@@ -40,16 +40,15 @@ def wrapMeshroomBin(_bin):
 
 
 class Task:
-    def __init__(self, name, command, uid=None, nodeCache="", tags=None, 
-                 reqPackages=None, service=None, licenses=None, taskType=None):
+    def __init__(self, node, command, defaultName="", nodeCache="", tags=None, 
+                 reqPackages=None, config=None, taskType=None):
         self.taskInfos = TaskInfo(
-            name=name,
+            name=node.name if node else defaultName,
+            node=node,
             cmdArgs=command,
-            nodeUid=uid,
             cacheFolder=nodeCache, 
             reqPackages=reqPackages, 
-            service=service, 
-            licenses=licenses, 
+            config=config, 
             taskType=taskType, 
             tags=tags.copy() if tags else None, 
         )
@@ -65,11 +64,11 @@ class Task:
 
 
 class Job:
-    def __init__(self, name, tags=None, requirements=None, environment=None, user=None, comment="", paused=False):
+    def __init__(self, name, tags=None, serviceKey=None, environment=None, user=None, comment="", paused=False):
         self.jobInfo = JobInfo(
             name, 
             share="", 
-            service=requirements, 
+            serviceKey=serviceKey, 
             environment=environment, 
             tags=tags, 
             user=user, 
@@ -124,7 +123,7 @@ class Job:
             tractorJob.addChild(tractorTask)
             taskToTractorTask[task] = tractorTask
 
-    def submit(self, priority="normal", share="", dryRun=False, block=False):
+    def submit(self, priority: Optional[int] = None, share: str = "", dryRun: bool = False, block: bool = False):
         """Submit to Tractor, or print TCL if dryRun."""
         if share:
             self.jobInfo.share = share
@@ -132,13 +131,15 @@ class Job:
         # Create job
         tractorJob = tractorAuthor.Job(**self.jobInfo.cook())
         self.cook(tractorJob)
-        tractorJob.priority = PRIORITY_DICT.get(priority, PRIORITY_DICT["normal"])
+        
+        tractorJob.priority = priority or PRIORITY_DICT["normal"]
 
         if dryRun:
             logging.info("TractorSubmitter: Job in TCL format")
             logging.info(tractorJob.asTcl())
             return {}
         else:
+            logging.info(f"Spooling job with priority {priority}")
             jid = tractorJob.spool(block=block, owner=self.jobInfo.user)
             return {"id": jid, "url": TRACTOR_JOB_URL.format(jid=jid)}
 
@@ -285,6 +286,7 @@ class TractorSubmitter(BaseSubmitter):
         self.share = os.environ.get("MESHROOM_TRACTOR_SHARE", "vfx")
         self.prod = os.environ.get("PROD", "mvg")
         self.reqPackages = getRequestPackages()
+        self.jobPriority: str = os.environ.get("MESHROOM_JOB_PRIORITY", "normal")
 
         for env_var in (
             "REZ_LOCAL_PACKAGES_PATH",
@@ -301,20 +303,6 @@ class TractorSubmitter(BaseSubmitter):
         elif "REZ_VERSION" in os.environ:
             self.environment["REZ_VERSION"] = os.environ["REZ_VERSION"]
 
-    def getTaskService(self, node):
-        kwargs = {
-            "excludeHosts": []
-        }
-        if hasattr(node.nodeDesc, "_cuda_tag"):
-            kwargs["cuda_tag"] = node.nodeDesc._cuda_tag
-        service = self.config.get_config(
-            cpu=node.cpu.value,
-            ram=node.ram.value,
-            gpu=node.gpu.value,
-            **kwargs
-        )
-        return service
-
     def retrieveJob(self, jid) -> TractorJob:
         job = TractorJob(jid, self)
         return job
@@ -322,12 +310,8 @@ class TractorSubmitter(BaseSubmitter):
     def createTask(self, meshroomFile: str, orderedTask: OrderedTask, createdTasks: Dict[OrderedTask, Task], **kwargs) -> Task:
         node = orderedTask.node
         if orderedTask.taskType == OrderedTaskType.PLACEHOLDER:
-            defaultName = kwargs.get("jobName", "")
-            defaultName += " (placeholder)"
-            return Task(
-                name=orderedTask.node.name if orderedTask.node else defaultName, 
-                command="", 
-            )
+            defaultName = kwargs.get("jobName", "") + " (placeholder)"
+            return Task(node=orderedTask.node, command="", defaultName=defaultName)
 
         if orderedTask.taskType == OrderedTaskType.CHUNK:
             taskType = ("chunk", orderedTask.iteration)
@@ -344,13 +328,11 @@ class TractorSubmitter(BaseSubmitter):
         tags['prod'] = self.prod
         
         taskParams = {
-            "name": node.name,
-            "uid": node._uid,  # Provide unicity info
+            "node": node,
             "nodeCache": node._internalFolder,
             "tags": tags,
             "reqPackages": self.reqPackages,
-            "service": self.getTaskService(node),
-            "licenses": node.nodeDesc._licenses,
+            "config": self.config,
             "taskType": taskType
         }
 
@@ -398,8 +380,19 @@ class TractorSubmitter(BaseSubmitter):
             deps = [createdTasks.get(t) for t in orderedTask.dependencies]
             for dependency in deps:
                 job.addTaskDependency(task, dependency)
-                
-        res = job.submit(share=self.share, dryRun=self.dryRun)
+
+        # Find priority
+        priority = None
+        if isinstance(self.jobPriority, str):
+            if self.jobPriority.isdigit():
+                priority = int(self.jobPriority)
+            else:
+                priority = PRIORITY_DICT.get(self.jobPriority)
+        if not isinstance(priority, int):
+            # Protect against bad values
+            priority = None
+
+        res = job.submit(priority=priority, share=self.share, dryRun=self.dryRun)
         if self.dryRun:
             return True
         if len(res) == 0:
@@ -422,7 +415,7 @@ class TractorSubmitter(BaseSubmitter):
         queueChunkTask(
             node=node,
             cmdArgs=cmdArgs,
-            service=self.getTaskService(node),
+            config=self.config,
             tags=taskTags,
             reqPackages=self.reqPackages,
             environment=environment
